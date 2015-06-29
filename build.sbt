@@ -6,10 +6,9 @@ lazy val commonSettings = Seq(
     "-feature",
     "-deprecation",
     "-language:_",
-    "-Xlint",
     "-Xfatal-warnings",
     "-Ywarn-dead-code",
-    "-target:jvm-1.8",
+    "-target:jvm-1.7",
     "-encoding",
     "UTF-8"
   ),
@@ -23,12 +22,12 @@ lazy val commonSettings = Seq(
 ) ++ scalariformSettings
 
 lazy val web = project
-  .in(file("modeleval-web"))
+  .in(file("dubl-web"))
   .settings(commonSettings: _*)
   .enablePlugins(PlayScala)
 
 lazy val cli = project
-  .in(file("modeleval-cli"))
+  .in(file("dubl-cli"))
   .settings(commonSettings: _*)
 
 lazy val root = project

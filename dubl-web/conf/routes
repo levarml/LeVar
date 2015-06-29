@@ -1,0 +1,20 @@
+# Routes
+# This file defines all application routes (Higher priority routes first)
+
+GET        /                                                             controllers.Application.index
+
+# API
+
+GET        /api/ping                                                     controllers.api.PingController.ping
+GET        /api/:org<[-\\w]+>                                            controllers.api.OrgController.details(org: String)
+GET        /api/:org<[-\\w]+>/dataset                                    controllers.api.DatasetController.search(org: String)
+POST       /api/:org<[-\\w]+>/dataset                                    controllers.api.DatasetController.create(org: String)
+GET        /api/:org<[-\\w]+>/dataset/:id<[-\\w]+>                       controllers.api.DatasetController.details(org: String, id: String)
+POST       /api/:org<[-\\w]+>/dataset/:id<[-\\w]+>                       controllers.api.DatasetController.update(org: String, id: String)
+DELETE     /api/:org<[-\\w]+>/dataset/:id<[-\\w]+>                       controllers.api.DatasetController.delete(org: String, id: String)
+GET        /api/:org<[-\\w]+>/dataset/:id<[-\\w]+>/:dataid<[-\\w]+>      controllers.api.DatasetDataController.details(org: String, id: String, dataid: String)
+GET        /api/:org<[-\\w]+>/experiment                                 controllers.api.ExperimentController.search(org: String)
+POST       /api/:org<[-\\w]+>/experiment                                 controllers.api.ExperimentController.create(org: String)
+GET        /api/:org<[-\\w]+>/experiment/:id<[-\\w]+>                    controllers.api.ExperimentController.details(org: String, id: String)
+DELETE     /api/:org<[-\\w]+>/experiment/:id<[-\\w]+>                    controllers.api.ExperimentController.delete(org: String, id: String)
+GET        /api/:org<[-\\w]+>/experiment/:id<[-\\w]+>/:dataid<[-\\w]+>   controllers.api.ExperimentDataController.details(org: String, id: String, dataid: String)
