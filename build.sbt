@@ -22,12 +22,12 @@ lazy val commonSettings = Seq(
 ) ++ scalariformSettings
 
 lazy val web = project
-  .in(file("dubl-web"))
+  .in(file("levar-web"))
   .settings(commonSettings: _*)
   .enablePlugins(PlayScala)
 
 lazy val cli = project
-  .in(file("dubl-cli"))
+  .in(file("levar-cli"))
   .settings(commonSettings: _*)
 
 lazy val root = project
