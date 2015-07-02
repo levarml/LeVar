@@ -3,10 +3,10 @@ LeVar
 
 Machine learning training and evaluation database.
 
-Getting started
----------------
+Developing
+----------
 
-Start the SBT console:
+To start the SBT console:
 
     $ ./sbt
     >

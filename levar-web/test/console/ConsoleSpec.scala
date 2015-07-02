@@ -1,7 +1,6 @@
 package console
 
 import org.scalatest._
-import java.util.UUID
 
 class ConsoleSpec extends FlatSpec with BeforeAndAfterEach {
 
@@ -14,12 +13,20 @@ class ConsoleSpec extends FlatSpec with BeforeAndAfterEach {
   }
 
   "createUser" should "create a user" in {
+    info("creating user-name")
     createUser("user-name", "my-password")
-    db.impl.getAuth("user-name", "my-password") match {
-      case Some(_) =>
-      case None => fail("did not create user")
-    }
+    info("verifying user-name")
+    assert(db.impl.getAuth("user-name", "my-password"), "did not create user")
   }
 
-  "deleteUser" should "delete a user"
+  "deleteUser" should "delete a user" in {
+    info("creating user-name")
+    createUser("user-name", "my-password")
+    info("verifying user-name")
+    assert(db.impl.getAuth("user-name", "my-password"), "did not create user")
+    info("removing user-name")
+    dropUser("user-name")
+    info("verifying user-name was dropped")
+    assert(!db.impl.getAuth("user-name", "my-password"), "did not remove user")
+  }
 }

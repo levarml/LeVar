@@ -1,9 +1,7 @@
 package db
 
-import java.util.UUID
-
 class CannotCreateOrganizationException(msg: String) extends Exception(msg)
-class InvalidUserNameException(msg: String) extends Exception(msg)
+class OrganizationNotFoundException(msg: String) extends Exception(msg)
 class CannotCreateUserException(msg: String) extends Exception(msg)
 class ForbiddenException(msg: String) extends Exception(msg)
 class UnauthorizedException(msg: String) extends Exception(msg)
@@ -16,40 +14,21 @@ class UnexpectedResultException(msg: String) extends Exception(msg)
 trait Database {
 
   /**
-   * Generate a set of UUIDs
-   *
-   * Used for batch inserts when we need to extract a portion of the UUID
-   * for a secondary key
-   *
-   * @param num the number of UUIDs to generate
-   * @return a set of `n` distinct UUIDs
-   */
-  def genUuids(num: Int): Seq[UUID]
-
-  /**
-   * Generate a new UUID
-   *
-   * @return a new UUID
-   */
-  def genUuid: UUID = genUuids(1).head
-
-  /**
    * Look up auth credentials by user name and password
    *
    * @param user the user name
    * @param pass the password
    * @return authentication identifier if one exists, None if not
    */
-  def getAuth(user: String, pass: String): Option[UUID]
+  def getAuth(user: String, pass: String): Boolean
 
   /**
    * Add new auth credentials
    *
    * @param user the user name
    * @param pass the password
-   * @return the new authentication identifier
    */
-  def addAuth(user: String, pass: String): UUID
+  def addAuth(user: String, pass: String)
 
   /**
    * Delete auth credentials
@@ -79,9 +58,57 @@ trait Database {
    * Add a new organization
    *
    * @param name the organization name
-   * @return the new organization UUID
    */
-  def addOrg(name: String): UUID
+  def addOrg(name: String)
+
+  /**
+   * Add a new organizaion and add users
+   *
+   * @param name the organization name
+   * @param users a list of user names to add to the organization
+   */
+  def addOrg(name: String, users: Seq[String])
+
+  /**
+   * Remove an organization
+   *
+   * @param name the name of the organization to remove
+   */
+  def delOrg(name: String)
+
+  /**
+   * Add a user to an organization
+   *
+   * @param org the organization name
+   * @param user the user name of the user to add to the organization
+   */
+  def addToOrg(org: String, user: String) { addToOrg(org, Seq(user)) }
+
+  /**
+   * Add a set of users to an organization
+   *
+   * @param org the organization name
+   * @param users a list of users to add to the organization
+   */
+  def addToOrg(org: String, users: Seq[String])
+
+  /**
+   * List the organizations a user belongs to
+   *
+   * @param user the user name
+   * @return a list of organization names
+   */
+  def listUserOrgs(user: String): Seq[String]
+
+  /**
+   * @return all organization names
+   */
+  def listOrgs: Seq[String]
+
+  /**
+   * @return the users in an organization
+   */
+  def listOrgUsers(org: String): Seq[String]
 }
 
 /**
@@ -92,6 +119,11 @@ object impl extends Database {
   import java.net.URI
   import scalikejdbc._
   import play.api.Logger
+  import java.util.UUID
+  import math.min
+  import util.validateIdentifier
+  import org.postgresql.util.PSQLException
+  import org.postgresql.util.PSQLState._
 
   val logger: Logger = Logger("dao.impl")
 
@@ -135,28 +167,48 @@ object impl extends Database {
     logger.info("tearing down DB done")
   }
 
-  def getAuth(user: String, pass: String): Option[UUID] = {
-    val uuidOpt = DB.readOnly { implicit session =>
-      sql"""select auth_id::text from auth
-            where username = $user and password = crypt($pass, password)"""
-        .map(_.string("auth_id"))
-        .single
-        .apply()
-        .map(UUID.fromString)
+  /**
+   * Generate a set of UUIDs
+   *
+   * Used for batch inserts when we need to extract a portion of the UUID
+   * for a secondary key
+   *
+   * @param num the number of UUIDs to generate
+   * @return a set of `n` distinct UUIDs with string semi-unique identifiers
+   */
+  def genUuids(num: Int): Seq[(UUID, String)] = {
+    var result = Seq.empty[(UUID, String)]
+    DB.readOnly { implicit session =>
+      do {
+        val uuids =
+          sql"select uuid_generate_v1mc()::text uuid from generate_series(1, ${min(10000, num)})"
+            .map(_.string("uuid"))
+            .list
+            .apply()
+        val uniqd = uuids.map { u => (UUID.fromString(u), u.take(8)) }.groupBy(_._2).map(_._2.head)
+        result ++= uniqd
+      } while (result.size < num)
     }
-    uuidOpt match {
-      case Some(uuid) => logger.debug(s"found $user")
-      case None => logger.info(s"failed auth request for $user")
-    }
-    uuidOpt
+
+    result.take(num)
   }
 
-  def genUuids(n: Int) = (for (_ <- 1 to n) yield UUID.randomUUID).toSeq
+  def getAuth(user: String, pass: String) = {
+    DB.readOnly { implicit session =>
+      sql"""select exists(select 1 from auth
+            where username = $user and password = crypt($pass, password) limit 1)"""
+        .map(_.boolean(1))
+        .single
+        .apply()
+        .get
+    }
+  }
 
-  def addAuth(user: String, pass: String) = {
+  def addAuth(user: String, pass: String) {
+    validateIdentifier(user)
     logger.info(s"adding user $user")
-    DB.localTx { implicit session =>
-      val uuidOpt = DB.localTx { implicit session =>
+    val uuidOpt = try {
+      DB.localTx { implicit session =>
         sql"""insert into auth (username, password) values ($user, crypt($pass, gen_salt('md5')))
               returning auth_id::text"""
           .map(_.string("auth_id"))
@@ -164,14 +216,16 @@ object impl extends Database {
           .apply()
           .map(UUID.fromString)
       }
-      uuidOpt match {
-        case Some(uuid) => {
-          logger.info(s"created new analysis $uuid")
-          uuid
-        }
-        case None => {
-          throw new CannotCreateUserException(user)
-        }
+    } catch {
+      case e: PSQLException if e.getMessage.contains("duplicate key value") =>
+        throw new CannotCreateUserException(user)
+    }
+    uuidOpt match {
+      case Some(uuid) => {
+        logger.info(s"created new analysis $uuid")
+      }
+      case None => {
+        throw new CannotCreateUserException(user)
       }
     }
   }
@@ -202,7 +256,8 @@ object impl extends Database {
     if (updatedUsers.isEmpty) {
       throw new UserNotFoundException(current)
     } else if (updatedUsers != List(next)) {
-      throw new UnexpectedResultException(s"unexpected users updated matching $current: ${updatedUsers.mkString(", ")}")
+      val msg = s"unexpected users updated matching $current: ${updatedUsers.mkString(", ")}"
+      throw new UnexpectedResultException(msg)
     }
   }
 
@@ -219,9 +274,140 @@ object impl extends Database {
     if (updatedUsers.isEmpty) {
       throw new UnauthorizedException(user)
     } else if (updatedUsers != List(user)) {
-      throw new UnexpectedResultException(s"unexpected users updated matching $user: ${updatedUsers.mkString(", ")}")
+      val msg = s"unexpected users updated matching $user: ${updatedUsers.mkString(", ")}"
+      throw new UnexpectedResultException(msg)
     }
   }
 
-  def addOrg(name: String) = UUID.randomUUID
+  def addOrg(name: String) {
+    validateIdentifier(name)
+    logger.info(s"creating new organization $name")
+    val newNames = try {
+      DB.localTx { implicit session =>
+        sql"insert into org (name) values ($name) returning name"
+          .map(_.string("name"))
+          .list
+          .apply()
+      }
+    } catch {
+      case e: PSQLException if e.getMessage.contains("duplicate key value") =>
+        throw new CannotCreateOrganizationException(name)
+    }
+    if (newNames.isEmpty) {
+      throw new CannotCreateOrganizationException(name)
+    } else if (newNames != List(name)) {
+      val msg = s"unexpected organizations created matching $name: ${newNames.mkString(", ")}"
+      throw new UnexpectedResultException(msg)
+    }
+  }
+
+  def delOrg(name: String) {
+    val deletedOrgs = DB.localTx { implicit session =>
+      sql"delete from org where name = $name returning name"
+        .map(_.string("name"))
+        .list
+        .apply()
+    }
+    if (deletedOrgs.isEmpty) {
+      throw new OrganizationNotFoundException(name)
+    } else if (deletedOrgs != List(name)) {
+      val msg = s"unexpected orgs deleted matching $name: ${deletedOrgs.mkString(", ")}"
+      throw new UnexpectedResultException(msg)
+    }
+  }
+
+  private def lookupUserIds(users: Seq[String]): Seq[String] = DB.readOnly { implicit session =>
+    val usersUniq = users.distinct
+    val userNameIds = sql"select username, auth_id::text from auth where username in ($usersUniq)"
+      .map { r => (r.string("username"), r.string("auth_id")) }
+      .list
+      .apply()
+
+    if (userNameIds.size != usersUniq.size) {
+      val notFound = usersUniq.toSet - userNameIds.map(_._1).toSet
+      throw new UserNotFoundException(notFound.mkString(", "))
+    }
+
+    userNameIds.map(_._2)
+  }
+
+  def addOrg(name: String, users: Seq[String]) {
+    validateIdentifier(name)
+    DB.localTx { implicit session =>
+      val userIds = lookupUserIds(users)
+
+      val newIdInsert = try {
+        sql"insert into org (name) values ($name) returning org_id::text"
+          .map(_.string("org_id"))
+          .single
+          .apply()
+      } catch {
+        case e: PSQLException if e.getMessage.contains("duplicate key value") =>
+          throw new CannotCreateOrganizationException(name)
+      }
+
+      newIdInsert match {
+        case Some(newId) => {
+          val batchVals = userIds.map(Seq(newId, _))
+          sql"insert into org_membership (org_id, auth_id) values (?::uuid, ?::uuid)"
+            .batch(batchVals: _*)
+            .apply()
+        }
+        case None =>
+          throw new CannotCreateOrganizationException(name)
+      }
+    }
+  }
+
+  def addToOrg(name: String, users: Seq[String]) {
+    validateIdentifier(name)
+    DB.localTx { implicit session =>
+      val userIds = lookupUserIds(users)
+
+      val orgIdLookup = sql"select org_id::text from org where name = $name"
+        .map(_.string("org_id"))
+        .single
+        .apply()
+
+      orgIdLookup match {
+        case Some(orgId) => {
+          val batchVals = userIds.map(Seq(orgId, _))
+          sql"insert into org_membership (org_id, auth_id) values (?::uuid, ?::uuid)"
+            .batch(batchVals: _*)
+            .apply()
+        }
+        case None =>
+          throw new OrganizationNotFoundException(name)
+      }
+    }
+  }
+
+  def listUserOrgs(user: String): Seq[String] = DB.readOnly { implicit session =>
+    sql"""select org.name org
+            from org
+            inner join org_membership on org.org_id = org_membership.org_id
+            inner join auth on org_membership.auth_id = auth.auth_id
+            where auth.username = $user"""
+      .map(_.string("org"))
+      .list
+      .apply()
+  }
+
+  def listOrgs: Seq[String] = DB.readOnly { implicit session =>
+    sql"select name from org"
+      .map(_.string("name"))
+      .list
+      .apply()
+  }
+
+  def listOrgUsers(org: String): Seq[String] = DB.readOnly { implicit session =>
+    sql"""select username
+          from auth
+          inner join org_membership on auth.auth_id = org_membership.auth_id
+          inner join org on org_membership.org_id = org.org_id
+          where org.name = $org"""
+      .map(_.string("username"))
+      .list
+      .apply()
+  }
 }
