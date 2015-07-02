@@ -144,14 +144,14 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
 
   "impl.addOrg" should "create a new organization" in {
     info("adding org1")
-    db.impl.addOrg("org1")
+    impl.addOrg("org1")
     info("verifying org1")
     assert(impl.listOrgs == List("org1"))
   }
 
   it should "not unexpectedly add users" in {
     info("adding org1")
-    db.impl.addOrg("org1")
+    impl.addOrg("org1")
     info("verifying org1")
     assert(impl.listOrgs == List("org1"))
 
@@ -172,7 +172,7 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
 
     try {
       info("adding 'org 1'")
-      db.impl.addOrg("org 1")
+      impl.addOrg("org 1")
     } catch {
       case _: InvalidIdentifierException => {
         info("caught invalid identifier")
@@ -199,12 +199,12 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
     assert(impl.getAuth("user-name-3", "my-password-2"), "user-name-3 not created")
 
     info("adding org1 with user-name-1 and user-name-2")
-    db.impl.addOrg("org1", Seq("user-name-1", "user-name-2"))
+    impl.addOrg("org1", Seq("user-name-1", "user-name-2"))
     info("verifying org1")
     assert(impl.listOrgs == List("org1"))
 
     info("adding org2 to make sure users aren't added to the wrong org")
-    db.impl.addOrg("org2")
+    impl.addOrg("org2")
     info("verifying org2")
     assert(impl.listOrgs.toSet == Set("org1", "org2"))
 
@@ -217,14 +217,14 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
 
   it should "not add the same org twice" in {
     info("adding org1")
-    db.impl.addOrg("org1")
+    impl.addOrg("org1")
     info("verifying org1")
     assert(impl.listOrgs == List("org1"))
 
     var caught = false
     try {
       info("adding org1 again")
-      db.impl.addOrg("org1")
+      impl.addOrg("org1")
     } catch {
       case _: CannotCreateOrganizationException => caught = true
     }
@@ -244,14 +244,14 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
     assert(impl.getAuth("user-name-2", "my-password-2"), "user-name-2 not created")
 
     info("adding org1")
-    db.impl.addOrg("org1")
+    impl.addOrg("org1")
     info("verifying org1")
     assert(impl.listOrgs == List("org1"))
 
     var caught = false
     try {
       info("adding org1 again")
-      db.impl.addOrg("org1", Seq("user-name-1", "user-name-2"))
+      impl.addOrg("org1", Seq("user-name-1", "user-name-2"))
     } catch {
       case _: CannotCreateOrganizationException => caught = true
     }
@@ -265,7 +265,7 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
     var caught = false
     try {
       info("adding org1 with non-existent users")
-      db.impl.addOrg("org1", Seq("user-name-1"))
+      impl.addOrg("org1", Seq("user-name-1"))
     } catch {
       case _: UserNotFoundException => {
         info("blocked non-existent user")
@@ -281,7 +281,7 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
 
   "impl.addToOrg" should "add users to an org" in {
     info("adding org1")
-    db.impl.addOrg("org1")
+    impl.addOrg("org1")
     info("verifying org1")
     assert(impl.listOrgs == List("org1"))
 
@@ -307,7 +307,7 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
 
   it should "not add non-existent users to an org" in {
     info("adding org1")
-    db.impl.addOrg("org1")
+    impl.addOrg("org1")
     info("verifying org1")
     assert(impl.listOrgs == List("org1"))
 
@@ -324,6 +324,56 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
 
     if (!caught) {
       fail("did not block adding non-existent users")
+    }
+  }
+
+  "impl.renameOrg" should "rename an organization" in {
+    info("adding org1")
+    impl.addOrg("org1")
+    info("verifying org1")
+    assert(impl.listOrgs == List("org1"))
+
+    info("renaming org1 to topo-chico")
+    impl.renameOrg("org1", "topo-chico")
+    info("verifying topo-chico")
+    assert(impl.listOrgs == List("topo-chico"))
+  }
+
+  it should "fail if organization doesn't exist" in {
+    var caught = false
+    try {
+      info("renaming org1 to topo-chico")
+      impl.renameOrg("org1", "topo-chico")
+    } catch {
+      case _: OrganizationNotFoundException => {
+        info("caught non-existent org name")
+        caught = true
+      }
+    }
+    if (!caught) {
+      fail("did not catch non-existent org name")
+    }
+  }
+
+  it should "verify valid organization name" in {
+    info("adding org1")
+    impl.addOrg("org1")
+    info("verifying org1")
+    assert(impl.listOrgs == List("org1"))
+
+    var caught = false
+    try {
+      info("renaming org1 to 'Logan's Run'")
+      impl.renameOrg("org1", "Logan's Run")
+    } catch {
+      case _: InvalidIdentifierException => {
+        info("caught invalid name")
+        caught = true
+      }
+    }
+
+    if (!caught) {
+      fail("did not catch invalid org name")
     }
   }
 }

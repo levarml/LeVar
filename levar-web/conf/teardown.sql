@@ -1,3 +1,7 @@
+drop table if exists ongoing_experiment_item;
+drop table if exists ongoing_experiment_run;
+drop table if exists ongoing_experiment_dataset;
+drop table if exists ongoing_experiment;
 drop table if exists comment;
 drop table if exists labelling;
 drop table if exists experiment_item;

@@ -109,6 +109,14 @@ trait Database {
    * @return the users in an organization
    */
   def listOrgUsers(org: String): Seq[String]
+
+  /**
+   * Rename an organization
+   *
+   * @param current the current name of the organization
+   * @param next the name to change to
+   */
+  def renameOrg(current: String, next: String)
 }
 
 /**
@@ -248,7 +256,9 @@ object impl extends Database {
   def renameAuth(current: String, next: String) {
     logger.info(s"renaming user $current to $next")
     val updatedUsers = DB.localTx { implicit session =>
-      sql"update auth set username = $next where username = $current returning username"
+      sql"""update auth
+            set username = $next, updated_at = current_timestamp
+            where username = $current returning username"""
         .map(_.string("username"))
         .list
         .apply()
@@ -264,7 +274,8 @@ object impl extends Database {
   def resetPassword(user: String, currentPass: String, nextPass: String) {
     logger.info(s"resetting password for $user with credentials")
     val updatedUsers = DB.localTx { implicit setssion =>
-      sql"""update auth set password = crypt($nextPass, gen_salt('md5'))
+      sql"""update auth
+            set password = crypt($nextPass, gen_salt('md5')), updated_at = current_timestamp
             where username = $user and password = crypt($currentPass, password)
             returning username"""
         .map(_.string("username"))
@@ -409,5 +420,28 @@ object impl extends Database {
       .map(_.string("username"))
       .list
       .apply()
+  }
+
+  def renameOrg(current: String, next: String) {
+    validateIdentifier(next)
+    logger.info(s"renaming organization $current to $next")
+    val updatedOrgs = DB.localTx { implicit session =>
+      sql"""update org
+            set name = $next, updated_at = current_timestamp
+            where name = $current
+            returning name"""
+        .map(_.string("name"))
+        .list
+        .apply()
+    }
+
+    if (updatedOrgs.isEmpty) {
+      throw new OrganizationNotFoundException(current)
+    } else if (updatedOrgs != List(next)) {
+      val msg = s"unexpected orgs updated matching $current: ${updatedOrgs.mkString(", ")}"
+      throw new UnexpectedResultException(msg)
+    } else {
+      logger.info(s"renamed org $current to $next")
+    }
   }
 }

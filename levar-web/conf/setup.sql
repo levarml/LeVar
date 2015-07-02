@@ -94,3 +94,43 @@ create table if not exists labelling (
   unique(label, object_id),
   created_at timestamp with time zone not null default current_timestamp
 );
+
+create table if not exists ongoing_experiment (
+  ongoing_experiment_id uuid not null primary key default uuid_generate_v1mc(),
+  name text not null,
+  org_id uuid not null references org (org_id) on delete cascade on update restrict,
+  api_url text not null,
+  api_auth text,
+  request_type char not null,
+  request_body_field text,
+  response_path text not null,
+  run_period char not null,
+  created_at timestamp with time zone not null default current_timestamp,
+  updated_at timestamp with time zone not null default current_timestamp,
+  unique(org_id, name)
+);
+
+create table if not exists ongoing_experiment_dataset (
+  ongoing_experiment_dataset_id uuid not null primary key default uuid_generate_v1mc(),
+  ongoing_experiment_id uuid not null references ongoing_experiment (ongoing_experiment_id) on delete cascade on update restrict,
+  dataset_id uuid not null references dataset (dataset_id) on delete cascade on update restrict,
+  created_at timestamp with time zone not null default current_timestamp,
+  unique (ongoing_experiment_id, dataset_id)
+);
+
+create table if not exists ongoing_experiment_run (
+  ongoing_experiment_run_id uuid not null primary key default uuid_generate_v1mc(),
+  ongoing_experiment_id uuid not null references ongoing_experiment (ongoing_experiment_id) on delete cascade on update restrict,
+  adhoc boolean not null default false,
+  created_at timestamp with time zone not null default current_timestamp
+);
+
+create table if not exists ongoing_experiment_item (
+  ongoing_experiment_item_id uuid not null primary key,
+  experiment_item_id uuid not null references experiment_item (experiment_item_id) on delete cascade on update restrict,
+  ongoing_experiment_run_id uuid not null references ongoing_experiment_run (ongoing_experiment_run_id) on delete cascade on update restrict,
+  response_status int not null,
+  response_time_milliseconds int not null,
+  response_body_raw text,
+  unique(experiment_item_id, ongoing_experiment_run_id)
+);
