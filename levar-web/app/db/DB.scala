@@ -182,7 +182,7 @@ object impl extends Database {
    * for a secondary key
    *
    * @param num the number of UUIDs to generate
-   * @return a set of `n` distinct UUIDs with string semi-unique identifiers
+   * @return a set of n distinct UUIDs with string semi-unique identifiers
    */
   def genUuids(num: Int): Seq[(UUID, String)] = {
     var result = Seq.empty[(UUID, String)]
@@ -193,8 +193,7 @@ object impl extends Database {
             .map(_.string("uuid"))
             .list
             .apply()
-        val uniqd = uuids.map { u => (UUID.fromString(u), u.take(8)) }.groupBy(_._2).map(_._2.head)
-        result ++= uniqd
+        result ++= uuids.map { u => (UUID.fromString(u), u.take(8)) }.groupBy(_._2).map(_._2.head)
       } while (result.size < num)
     }
 
