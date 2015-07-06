@@ -57,29 +57,29 @@ trait Database {
   /**
    * Add a new organization
    *
-   * @param name the organization name
+   * @param id the organization external id
    */
-  def addOrg(name: String)
+  def addOrg(id: String)
 
   /**
    * Add a new organizaion and add users
    *
-   * @param name the organization name
+   * @param id the organization external id
    * @param users a list of user names to add to the organization
    */
-  def addOrg(name: String, users: Seq[String])
+  def addOrg(id: String, users: Seq[String])
 
   /**
    * Remove an organization
    *
-   * @param name the name of the organization to remove
+   * @param id the external id of the organization to remove
    */
-  def delOrg(name: String)
+  def delOrg(id: String)
 
   /**
    * Add a user to an organization
    *
-   * @param org the organization name
+   * @param org the organization external id
    * @param user the user name of the user to add to the organization
    */
   def addToOrg(org: String, user: String) { addToOrg(org, Seq(user)) }
@@ -87,7 +87,7 @@ trait Database {
   /**
    * Add a set of users to an organization
    *
-   * @param org the organization name
+   * @param org the organization external id
    * @param users a list of users to add to the organization
    */
   def addToOrg(org: String, users: Seq[String])
@@ -96,12 +96,12 @@ trait Database {
    * List the organizations a user belongs to
    *
    * @param user the user name
-   * @return a list of organization names
+   * @return a list of organization external ids
    */
   def listUserOrgs(user: String): Seq[String]
 
   /**
-   * @return all organization names
+   * @return all organization external ids
    */
   def listOrgs: Seq[String]
 
@@ -113,8 +113,8 @@ trait Database {
   /**
    * Rename an organization
    *
-   * @param current the current name of the organization
-   * @param next the name to change to
+   * @param current the current external id of the organization
+   * @param next the id to change to
    */
   def renameOrg(current: String, next: String)
 
@@ -122,7 +122,7 @@ trait Database {
    * Return whether a user has access to an organization
    *
    * @param user the user name
-   * @param org the organization name
+   * @param org the organization external id
    * @return true if the user has access to the organization
    */
   def userHasOrgAccess(user: String, org: String): Boolean
@@ -298,39 +298,39 @@ object impl extends Database {
     }
   }
 
-  def addOrg(name: String) {
-    validateIdentifier(name)
-    logger.info(s"creating new organization $name")
-    val newNames = try {
+  def addOrg(id: String) {
+    validateIdentifier(id)
+    logger.info(s"creating new organization $id")
+    val newIds = try {
       DB.localTx { implicit session =>
-        sql"insert into org (name) values ($name) returning name"
-          .map(_.string("name"))
+        sql"insert into org (provided_id) values ($id) returning provided_id"
+          .map(_.string("provided_id"))
           .list
           .apply()
       }
     } catch {
       case e: PSQLException if e.getMessage.contains("duplicate key value") =>
-        throw new CannotCreateOrganizationException(name)
+        throw new CannotCreateOrganizationException(id)
     }
-    if (newNames.isEmpty) {
-      throw new CannotCreateOrganizationException(name)
-    } else if (newNames != List(name)) {
-      val msg = s"unexpected organizations created matching $name: ${newNames.mkString(", ")}"
+    if (newIds.isEmpty) {
+      throw new CannotCreateOrganizationException(id)
+    } else if (newIds != List(id)) {
+      val msg = s"unexpected organizations created matching $id: ${newIds.mkString(", ")}"
       throw new UnexpectedResultException(msg)
     }
   }
 
-  def delOrg(name: String) {
+  def delOrg(id: String) {
     val deletedOrgs = DB.localTx { implicit session =>
-      sql"delete from org where name = $name returning name"
-        .map(_.string("name"))
+      sql"delete from org where provided_id = $id returning provided_id"
+        .map(_.string("provided_id"))
         .list
         .apply()
     }
     if (deletedOrgs.isEmpty) {
-      throw new OrganizationNotFoundException(name)
-    } else if (deletedOrgs != List(name)) {
-      val msg = s"unexpected orgs deleted matching $name: ${deletedOrgs.mkString(", ")}"
+      throw new OrganizationNotFoundException(id)
+    } else if (deletedOrgs != List(id)) {
+      val msg = s"unexpected orgs deleted matching $id: ${deletedOrgs.mkString(", ")}"
       throw new UnexpectedResultException(msg)
     }
   }
@@ -350,19 +350,19 @@ object impl extends Database {
     userNameIds.map(_._2)
   }
 
-  def addOrg(name: String, users: Seq[String]) {
-    validateIdentifier(name)
+  def addOrg(id: String, users: Seq[String]) {
+    validateIdentifier(id)
     DB.localTx { implicit session =>
       val userIds = lookupUserIds(users)
 
       val newIdInsert = try {
-        sql"insert into org (name) values ($name) returning org_id::text"
+        sql"insert into org (provided_id) values ($id) returning org_id::text"
           .map(_.string("org_id"))
           .single
           .apply()
       } catch {
         case e: PSQLException if e.getMessage.contains("duplicate key value") =>
-          throw new CannotCreateOrganizationException(name)
+          throw new CannotCreateOrganizationException(id)
       }
 
       newIdInsert match {
@@ -373,17 +373,17 @@ object impl extends Database {
             .apply()
         }
         case None =>
-          throw new CannotCreateOrganizationException(name)
+          throw new CannotCreateOrganizationException(id)
       }
     }
   }
 
-  def addToOrg(name: String, users: Seq[String]) {
-    validateIdentifier(name)
+  def addToOrg(id: String, users: Seq[String]) {
+    validateIdentifier(id)
     DB.localTx { implicit session =>
       val userIds = lookupUserIds(users)
 
-      val orgIdLookup = sql"select org_id::text from org where name = $name"
+      val orgIdLookup = sql"select org_id::text from org where provided_id = $id"
         .map(_.string("org_id"))
         .single
         .apply()
@@ -396,13 +396,13 @@ object impl extends Database {
             .apply()
         }
         case None =>
-          throw new OrganizationNotFoundException(name)
+          throw new OrganizationNotFoundException(id)
       }
     }
   }
 
   def listUserOrgs(user: String): Seq[String] = DB.readOnly { implicit session =>
-    sql"""select org.name org
+    sql"""select org.provided_id org
             from org
             inner join org_membership on org.org_id = org_membership.org_id
             inner join auth on org_membership.auth_id = auth.auth_id
@@ -413,8 +413,8 @@ object impl extends Database {
   }
 
   def listOrgs: Seq[String] = DB.readOnly { implicit session =>
-    sql"select name from org"
-      .map(_.string("name"))
+    sql"select provided_id from org"
+      .map(_.string("provided_id"))
       .list
       .apply()
   }
@@ -424,7 +424,7 @@ object impl extends Database {
           from auth
           inner join org_membership on auth.auth_id = org_membership.auth_id
           inner join org on org_membership.org_id = org.org_id
-          where org.name = $org"""
+          where org.provided_id = $org"""
       .map(_.string("username"))
       .list
       .apply()
@@ -435,10 +435,10 @@ object impl extends Database {
     logger.info(s"renaming organization $current to $next")
     val updatedOrgs = DB.localTx { implicit session =>
       sql"""update org
-            set name = $next, updated_at = current_timestamp
-            where name = $current
-            returning name"""
-        .map(_.string("name"))
+            set provided_id = $next, updated_at = current_timestamp
+            where provided_id = $current
+            returning provided_id"""
+        .map(_.string("provided_id"))
         .list
         .apply()
     }
@@ -457,7 +457,7 @@ object impl extends Database {
     sql"""select exists(
           select 1 from auth inner join org_membership on auth.auth_id = org_membership.auth_id
           inner join org on org_membership.org_id = org.org_id
-          where username = $user and org.name = $org
+          where username = $user and org.provided_id = $org
           limit 1)"""
       .map(_.boolean(1))
       .single

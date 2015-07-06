@@ -16,7 +16,8 @@ create table if not exists auth (
 
 create table if not exists org (
   org_id uuid not null primary key default uuid_generate_v1mc(),
-  name text not null unique,
+  provided_id text not null unique,
+  name text,
   created_at timestamp with time zone not null default current_timestamp,
   updated_at timestamp with time zone not null default current_timestamp
 );
@@ -32,7 +33,8 @@ create table if not exists org_membership (
 create table if not exists dataset (
   dataset_id uuid not null primary key,
   ident int4 not null,
-  name text not null,
+  provided_id text not null,
+  name text,
   dataset_type char not null,
   schema json not null,
   org_id uuid not null references org (org_id) on delete cascade on update restrict,
@@ -41,12 +43,11 @@ create table if not exists dataset (
   unique (org_id, ident)
 );
 
-create table if not exists dataset_item (
-  dataset_item_id uuid not null primary key,
+create table if not exists datum (
+  datum_id uuid not null primary key,
   ident int4 not null,
   provided_id text,
   data json not null,
-  item_type char not null,
   rvalue double precision,
   cvalue text,
   dataset_id uuid not null references dataset (dataset_id) on delete cascade on update restrict,
@@ -56,14 +57,13 @@ create table if not exists dataset_item (
 );
 
 create table if not exists experiment (
-  experiment_id uuid not null primary key,
-  ident int4 not null,
-  name text not null,
+  experiment_id uuid not null primary key default uuid_generate_v1mc(),
+  provided_id text not null,
+  name text,
   org_id uuid not null references org (org_id) on delete cascade on update restrict,
   created_at timestamp with time zone not null default current_timestamp,
   updated_at timestamp with time zone not null default current_timestamp,
-  unique (ident, org_id),
-  unique (name, org_id)
+  unique (provided_id, org_id)
 );
 
 create table if not exists experiment_for_dataset (
@@ -74,24 +74,24 @@ create table if not exists experiment_for_dataset (
   unique(experiment_id, dataset_id)
 );
 
-create table if not exists experiment_item (
-  experiment_item_id uuid not null primary key,
+create table if not exists prediction (
+  prediction_id uuid not null primary key,
   ident int4 not null,
   rvalue double precision,
   cvalue text,
   predict_score double precision,
   experiment_id uuid not null references experiment (experiment_id) on delete cascade on update restrict,
-  dataset_item_id uuid not null references dataset_item (dataset_item_id) on delete cascade on update restrict,
+  datum_id uuid not null references datum (datum_id) on delete cascade on update restrict,
   created_at timestamp with time zone not null default current_timestamp,
   unique(experiment_id, ident),
-  unique(experiment_id, dataset_item_id)
+  unique(experiment_id, datum_id)
 );
 
 create table if not exists comment (
   comment_id uuid not null primary key,
   ident int4 not null,
   subject_id uuid not null,
-  user_name text not null,
+  username text not null,
   comment text not null,
   created_at timestamp with time zone not null default current_timestamp
 );
@@ -104,8 +104,8 @@ create table if not exists labelling (
   created_at timestamp with time zone not null default current_timestamp
 );
 
-create table if not exists ongoing_experiment (
-  ongoing_experiment_id uuid not null primary key default uuid_generate_v1mc(),
+create table if not exists job (
+  job_id uuid not null primary key default uuid_generate_v1mc(),
   name text not null,
   org_id uuid not null references org (org_id) on delete cascade on update restrict,
   api_url text not null,
@@ -119,27 +119,27 @@ create table if not exists ongoing_experiment (
   unique(org_id, name)
 );
 
-create table if not exists ongoing_experiment_dataset (
-  ongoing_experiment_dataset_id uuid not null primary key default uuid_generate_v1mc(),
-  ongoing_experiment_id uuid not null references ongoing_experiment (ongoing_experiment_id) on delete cascade on update restrict,
+create table if not exists job_dataset (
+  job_dataset_id uuid not null primary key default uuid_generate_v1mc(),
+  job_id uuid not null references job (job_id) on delete cascade on update restrict,
   dataset_id uuid not null references dataset (dataset_id) on delete cascade on update restrict,
   created_at timestamp with time zone not null default current_timestamp,
-  unique (ongoing_experiment_id, dataset_id)
+  unique (job_id, dataset_id)
 );
 
-create table if not exists ongoing_experiment_run (
-  ongoing_experiment_run_id uuid not null primary key default uuid_generate_v1mc(),
-  ongoing_experiment_id uuid not null references ongoing_experiment (ongoing_experiment_id) on delete cascade on update restrict,
+create table if not exists run (
+  run_id uuid not null primary key default uuid_generate_v1mc(),
+  job_id uuid not null references job (job_id) on delete cascade on update restrict,
   adhoc boolean not null default false,
   created_at timestamp with time zone not null default current_timestamp
 );
 
-create table if not exists ongoing_experiment_item (
-  ongoing_experiment_item_id uuid not null primary key,
-  experiment_item_id uuid not null references experiment_item (experiment_item_id) on delete cascade on update restrict,
-  ongoing_experiment_run_id uuid not null references ongoing_experiment_run (ongoing_experiment_run_id) on delete cascade on update restrict,
+create table if not exists call (
+  call_id uuid not null primary key,
+  prediction_id uuid not null references prediction (prediction_id) on delete cascade on update restrict,
+  run_id uuid not null references run (run_id) on delete cascade on update restrict,
   response_status int not null,
   response_time_milliseconds int not null,
   response_body_raw text,
-  unique(experiment_item_id, ongoing_experiment_run_id)
+  unique(prediction_id, run_id)
 );
