@@ -16,7 +16,7 @@ import org.joda.time.DateTime
 case class Comment[A](
   username: String,
   comment: String,
-  id: Option[String],
-  path: Option[String],
-  subject: Option[A],
-  createdAt: Option[DateTime])
+  id: Option[String] = None,
+  path: Option[String] = None,
+  subject: Option[A] = None,
+  createdAt: Option[DateTime] = None)
