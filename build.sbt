@@ -21,19 +21,25 @@ lazy val commonSettings = Seq(
   fork := true
 ) ++ scalariformSettings
 
+lazy val core = project
+  .in(file("levar-core"))
+  .settings(commonSettings: _*)
+
 lazy val web = project
   .in(file("levar-web"))
   .settings(commonSettings: _*)
   .enablePlugins(PlayScala)
+  .dependsOn(core)
 
 lazy val cli = project
   .in(file("levar-cli"))
   .settings(commonSettings: _*)
+  .dependsOn(core)
 
 lazy val root = project
   .in(file("."))
   .settings(commonSettings: _*)
-  .aggregate(web, cli)
+  .aggregate(core, web, cli)
 
 fork := true
 
