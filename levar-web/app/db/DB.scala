@@ -117,6 +117,15 @@ trait Database {
    * @param next the name to change to
    */
   def renameOrg(current: String, next: String)
+
+  /**
+   * Return whether a user has access to an organization
+   *
+   * @param user the user name
+   * @param org the organization name
+   * @return true if the user has access to the organization
+   */
+  def userHasOrgAccess(user: String, org: String): Boolean
 }
 
 /**
@@ -129,7 +138,7 @@ object impl extends Database {
   import play.api.Logger
   import java.util.UUID
   import math.min
-  import util.validateIdentifier
+  import utils.validateIdentifier
   import org.postgresql.util.PSQLException
   import org.postgresql.util.PSQLState._
 
@@ -442,5 +451,17 @@ object impl extends Database {
     } else {
       logger.info(s"renamed org $current to $next")
     }
+  }
+
+  def userHasOrgAccess(user: String, org: String) = DB.readOnly { implicit session =>
+    sql"""select exists(
+          select 1 from auth inner join org_membership on auth.auth_id = org_membership.auth_id
+          inner join org on org_membership.org_id = org.org_id
+          where username = $user and org.name = $org
+          limit 1)"""
+      .map(_.boolean(1))
+      .single
+      .apply()
+      .get
   }
 }

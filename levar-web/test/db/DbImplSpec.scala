@@ -1,7 +1,7 @@
 package db
 
 import org.scalatest._
-import util._
+import utils._
 
 class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
 
@@ -213,6 +213,10 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
 
     info("checking the orgs for user-name-1")
     assert(impl.listUserOrgs("user-name-1") == Seq("org1"))
+
+    assert(impl.userHasOrgAccess("user-name-1", "org1"))
+    assert(impl.userHasOrgAccess("user-name-2", "org1"))
+    assert(!impl.userHasOrgAccess("user-name-3", "org1"))
   }
 
   it should "not add the same org twice" in {
@@ -303,6 +307,10 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
     info("adding users to org1")
     impl.addToOrg("org1", Seq("user-name-1", "user-name-2"))
     assert(impl.listOrgUsers("org1").toSet == Set("user-name-1", "user-name-2"))
+
+    assert(impl.userHasOrgAccess("user-name-1", "org1"))
+    assert(impl.userHasOrgAccess("user-name-2", "org1"))
+    assert(!impl.userHasOrgAccess("user-name-3", "org1"))
   }
 
   it should "not add non-existent users to an org" in {
@@ -325,6 +333,8 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
     if (!caught) {
       fail("did not block adding non-existent users")
     }
+
+    assert(!impl.userHasOrgAccess("user-name-1", "org1"))
   }
 
   "impl.renameOrg" should "rename an organization" in {

@@ -6,6 +6,11 @@ package object console {
   import db._
 
   /**
+   * Set up the DB
+   */
+  def dbSetUp() { db.impl.setUp() }
+
+  /**
    * Create a new user
    *
    * @param name the new user name

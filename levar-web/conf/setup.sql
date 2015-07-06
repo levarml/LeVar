@@ -66,11 +66,20 @@ create table if not exists experiment (
   unique (name, org_id)
 );
 
+create table if not exists experiment_for_dataset (
+  experiment_for_dataset_id uuid not null primary key,
+  experiment_id uuid not null references experiment (experiment_id) on delete cascade on update restrict,
+  dataset_id uuid not null references dataset (dataset_id) on delete cascade on update restrict,
+  created_at timestamp with time zone not null default current_timestamp,
+  unique(experiment_id, dataset_id)
+);
+
 create table if not exists experiment_item (
   experiment_item_id uuid not null primary key,
   ident int4 not null,
   rvalue double precision,
   cvalue text,
+  predict_score double precision,
   experiment_id uuid not null references experiment (experiment_id) on delete cascade on update restrict,
   dataset_item_id uuid not null references dataset_item (dataset_item_id) on delete cascade on update restrict,
   created_at timestamp with time zone not null default current_timestamp,
