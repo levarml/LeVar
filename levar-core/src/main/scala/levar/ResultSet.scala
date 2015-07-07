@@ -11,7 +11,6 @@ package levar
  */
 case class ResultSet[A](
   items: Seq[A],
-  size: Int,
   path: String,
-  total: Option[Int],
-  nextPath: Option[String])
+  total: Option[Int] = None,
+  nextPath: Option[String] = None)

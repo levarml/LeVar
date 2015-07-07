@@ -16,9 +16,9 @@ import org.joda.time.DateTime
  */
 case class Datum(
   data: JsValue,
-  value: Option[Either[Double, String]],
-  id: Option[String],
-  dataset: Option[Dataset],
-  createdAt: Option[DateTime],
-  labels: Option[ResultSet[String]],
-  comments: Option[ResultSet[Comment[Datum]]])
+  value: Option[Either[Double, String]] = None,
+  id: Option[String] = None,
+  dataset: Option[Dataset] = None,
+  createdAt: Option[DateTime] = None,
+  labels: Option[ResultSet[String]] = None,
+  comments: Option[ResultSet[Comment[Datum]]] = None)

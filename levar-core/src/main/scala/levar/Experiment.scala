@@ -18,12 +18,12 @@ import org.joda.time.DateTime
  */
 case class Experiment(
   id: String,
-  datasets: Option[Seq[Dataset]],
-  datasetIds: Option[Seq[String]],
-  name: Option[String],
-  createdAt: Option[DateTime],
-  updatedAt: Option[DateTime],
-  size: Option[Int],
-  itemsSample: Option[Seq[Prediction]],
-  labels: Option[ResultSet[String]],
-  comments: Option[ResultSet[Comment[Experiment]]])
+  datasets: Option[Seq[Dataset]] = None,
+  datasetIds: Option[Seq[String]] = None,
+  name: Option[String] = None,
+  createdAt: Option[DateTime] = None,
+  updatedAt: Option[DateTime] = None,
+  size: Option[Int] = None,
+  itemsSample: Option[Seq[Prediction]] = None,
+  labels: Option[ResultSet[String]] = None,
+  comments: Option[ResultSet[Comment[Experiment]]] = None)
