@@ -39,5 +39,5 @@ case class Dataset(
   size: Option[Int] = None,
   itemsSample: Option[ResultSet[Datum]] = None,
   experimentSample: Option[ResultSet[Experiment]] = None,
-  labels: Option[ResultSet[String]] = None,
+  labels: Option[Seq[String]] = None,
   comments: Option[ResultSet[Comment[Dataset]]] = None)

@@ -20,5 +20,5 @@ case class Datum(
   id: Option[String] = None,
   dataset: Option[Dataset] = None,
   createdAt: Option[DateTime] = None,
-  labels: Option[ResultSet[String]] = None,
+  labels: Option[Seq[String]] = None,
   comments: Option[ResultSet[Comment[Datum]]] = None)

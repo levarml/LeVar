@@ -24,6 +24,6 @@ case class Experiment(
   createdAt: Option[DateTime] = None,
   updatedAt: Option[DateTime] = None,
   size: Option[Int] = None,
-  itemsSample: Option[Seq[Prediction]] = None,
-  labels: Option[ResultSet[String]] = None,
+  predictionsSample: Option[ResultSet[Prediction]] = None,
+  labels: Option[Seq[String]] = None,
   comments: Option[ResultSet[Comment[Experiment]]] = None)
