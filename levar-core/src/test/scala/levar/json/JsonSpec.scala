@@ -1,4 +1,4 @@
-package levar.jsn
+package levar.json
 
 import org.scalatest._
 import play.api.libs.json._

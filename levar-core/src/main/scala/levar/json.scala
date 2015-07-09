@@ -3,7 +3,7 @@ package levar
 /**
  * Implicit functions for JSON conversions
  */
-package object jsn {
+package object json {
 
   import play.api.libs.json._
   import org.joda.time.DateTimeZone.UTC
