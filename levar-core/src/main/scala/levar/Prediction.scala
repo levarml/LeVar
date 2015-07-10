@@ -18,8 +18,7 @@ case class Prediction(
   value: Either[Double, String],
   datum: Option[Datum] = None,
   datumId: Option[String] = None,
-  experiment: Option[Experiment] = None,
   score: Option[Double] = None,
   createdAt: Option[DateTime] = None,
   labels: Option[Seq[String]] = None,
-  comments: Option[ResultSet[Comment[Prediction]]] = None)
+  comments: Option[ResultSet[Comment]] = None)

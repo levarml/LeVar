@@ -1,6 +1,7 @@
 package levar
 
 import org.joda.time.DateTime
+import play.api.libs.json.JsValue
 
 /**
  * Arbitrary comment datatype
@@ -13,10 +14,10 @@ import org.joda.time.DateTime
  * @param subject the thing being commented on, for display
  * @param createdAt the date the comment was put in the DB
  */
-case class Comment[A](
+case class Comment(
   username: String,
   comment: String,
   id: Option[String] = None,
   path: Option[String] = None,
-  subject: Option[A] = None,
+  subject: Option[(String, JsValue)] = None,
   createdAt: Option[DateTime] = None)

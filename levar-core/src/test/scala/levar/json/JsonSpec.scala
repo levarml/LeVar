@@ -6,22 +6,34 @@ import levar._
 import org.joda.time.DateTime
 import org.joda.time.DateTimeZone.UTC
 
-class JsnSpec extends FlatSpec {
+class JsonSpec extends FlatSpec {
 
-  def assertWrites[A](expected: String, input: A)(implicit wrtr: Writes[A]) {
+  def assertWrites[A](expected: String, input: A)(implicit writer: Writes[A]) {
     assert(Json.parse(expected) == Json.toJson(input))
+  }
+
+  def assertReads[A](expected: A, input: String)(implicit reader: Reads[A]) {
+    assert(JsSuccess(expected) == Json.parse(input).validate[A])
+  }
+
+  def assertReadsFail[A](input: String)(implicit reader: Reads[A]) {
+    val s = if (input.size < 10) input else (input.take(7) + "...")
+    Json.parse(input).validate[A] match {
+      case _: JsError => info(s"correctly failed $s")
+      case _: JsSuccess[A] => info(s"correctly parsed $s")
+    }
   }
 
   "Comment JSON serialization" should "create basic JSON" in {
     assertWrites(
       """{"username":"john", "comment": "Hello world"}""",
-      Comment[String]("john", "Hello world"))
+      Comment("john", "Hello world"))
   }
 
   it should "handle IDs" in {
     assertWrites(
       """{"id": "2938abb3", "username": "john", "comment": "Hello world"}""",
-      Comment[String]("john", "Hello world", id = Some("2938abb3")))
+      Comment("john", "Hello world", id = Some("2938abb3")))
   }
 
   it should "handle paths" in {
@@ -32,7 +44,7 @@ class JsnSpec extends FlatSpec {
          |  "path":"/api/foo/experiment/1234/comments/abcdef"
          |}
          |""".stripMargin,
-      Comment[String](
+      Comment(
         "john",
         "Hello world!",
         path = Some("/api/foo/experiment/1234/comments/abcdef")))
@@ -46,15 +58,71 @@ class JsnSpec extends FlatSpec {
          |  "subject": {"type": "experiment", "value": {"id": "silly-experiment"}}
          |}
          |""".stripMargin,
-      Comment("john", "Hello world!", subject = Some(Experiment("silly-experiment"))))
+      Comment(
+        "john",
+        "Hello world!",
+        subject = Some(("experiment", Json.parse("""{"id": "silly-experiment"}""")))))
   }
 
   it should "handle created dates" in {
-    val timestamp = DateTime.now
-    val timestampIso = timestamp.withZone(UTC).toString()
+    val timestamp = DateTime.now.withZone(UTC)
+    val timestampIso = timestamp.toString()
     assertWrites(
       s"""{"username": "john", "comment": "Hello world!", "created_at": "${timestampIso}"}""",
-      Comment[String]("john", "Hello world!", createdAt = Some(timestamp)))
+      Comment("john", "Hello world!", createdAt = Some(timestamp)))
+  }
+
+  "Comment JSON deserialization" should "parse basic JSON" in {
+    assertReads[Comment](
+      Comment("john", "Yo"),
+      """{"username": "john", "comment": "Yo"}""")
+  }
+
+  it should "fail on missing fields" in {
+    assertReadsFail[Comment]("{}")
+    assertReadsFail[Comment]("""{"username": "john"}""")
+  }
+
+  it should "handle IDs" in {
+    assertReads(
+      Comment("john", "Hello world", id = Some("2938abb3")),
+      """{"id": "2938abb3", "username": "john", "comment": "Hello world"}""")
+  }
+
+  it should "handle paths" in {
+    assertReads(
+      Comment(
+        "john",
+        "Hello world!",
+        path = Some("/api/foo/experiment/1234/comments/abcdef")),
+      """|{
+         |  "username": "john",
+         |  "comment": "Hello world!",
+         |  "path":"/api/foo/experiment/1234/comments/abcdef"
+         |}
+         |""".stripMargin)
+  }
+
+  it should "handle subjects" in {
+    assertReads(
+      Comment(
+        "john",
+        "Hello world!",
+        subject = Some(("experiment", Json.parse("""{"id": "silly-experiment"}""")))),
+      """|{
+         |  "username": "john",
+         |  "comment": "Hello world!",
+         |  "subject": {"type": "experiment", "value": {"id": "silly-experiment"}}
+         |}
+         |""".stripMargin)
+  }
+
+  it should "handle created dates" in {
+    val timestamp = DateTime.now.withZone(UTC)
+    val timestampIso = timestamp.toString()
+    assertReads(
+      Comment("john", "Hello world!", createdAt = Some(timestamp)),
+      s"""{"username": "john", "comment": "Hello world!", "created_at": "${timestampIso}"}""")
   }
 
   "Datum JSON serialization" should "create basic JSON" in {
@@ -126,7 +194,6 @@ class JsnSpec extends FlatSpec {
          |  "data": {"text": "Hello world!", "score": 123.4, "count": 987},
          |  "comments": {
          |    "items": [{"username": "john", "comment": "this is cool!"}],
-         |    "size": 1,
          |    "path": "/api/foo/dataset/dataset-1/hello/comments"
          |  }
          |}
@@ -138,9 +205,87 @@ class JsnSpec extends FlatSpec {
           Comment("john", "this is cool!")), "/api/foo/dataset/dataset-1/hello/comments"))))
   }
 
+  "Datum JSON deserialization" should "create basic JSON" in {
+    assertReads(
+      Datum(Json.obj("text" -> "Hello world!", "score" -> 123.4, "count" -> 987)),
+      """{"data": {"text": "Hello world!", "score": 123.4, "count": 987}}""")
+  }
+
+  it should "handle real values" in {
+    assertReads(
+      Datum(
+        Json.obj("text" -> "Hello world!", "score" -> 123.4, "count" -> 987),
+        value = Some(Left(0.56))),
+      """{"data": {"text": "Hello world!", "score": 123.4, "count": 987}, "value": 0.56}""")
+  }
+
+  it should "handle categorical values" in {
+    assertReads(
+      Datum(
+        Json.obj("text" -> "Hello world!", "score" -> 123.4, "count" -> 987),
+        value = Some(Right("win"))),
+      """{"data": {"text": "Hello world!", "score": 123.4, "count": 987}, "value": "win"}""")
+  }
+
+  it should "handle IDs" in {
+    assertReads(
+      Datum(
+        Json.obj("text" -> "Hello world!", "score" -> 123.4, "count" -> 987),
+        id = Some("datum-1")),
+      """{"data": {"text": "Hello world!", "score": 123.4, "count": 987}, "id": "datum-1"}""")
+  }
+
+  it should "handle created at" in {
+    assertReads(
+      Datum(
+        Json.obj("text" -> "Hello world!", "score" -> 123.4, "count" -> 987),
+        createdAt = Some(new DateTime(2005, 3, 26, 12, 0, 0, 0, UTC))),
+      """|{
+         |  "data": {
+         |    "text": "Hello world!",
+         |    "score": 123.4,
+         |    "count": 987
+         |  },
+         |  "created_at": "2005-03-26T12:00:00.000Z"
+         |}
+         |""".stripMargin)
+  }
+
+  it should "handle labels" in {
+    assertReads(
+      Datum(
+        Json.obj("text" -> "Hello world!", "score" -> 123.4, "count" -> 987),
+        id = Some("hello"),
+        labels = Some(Seq("big", "data"))),
+      """|{
+         |  "id": "hello",
+         |  "data": {"text": "Hello world!", "score": 123.4, "count": 987},
+         |  "labels": ["big", "data"]
+         |}
+         |""".stripMargin)
+  }
+
+  it should "handle comments" in {
+    assertReads(
+      Datum(
+        Json.obj("text" -> "Hello world!", "score" -> 123.4, "count" -> 987),
+        id = Some("hello"),
+        comments = Some(ResultSet(Seq(
+          Comment("john", "this is cool!")), "/api/foo/dataset/dataset-1/hello/comments"))),
+      """|{
+         |  "id": "hello",
+         |  "data": {"text": "Hello world!", "score": 123.4, "count": 987},
+         |  "comments": {
+         |    "items": [{"username": "john", "comment": "this is cool!"}],
+         |    "path": "/api/foo/dataset/dataset-1/hello/comments"
+         |  }
+         |}
+         |""".stripMargin)
+  }
+
   "Result set JSON serialization" should "create basic JSON" in {
     assertWrites(
-      """{"items": ["big", "data"], "size": 2, "path": "/api/foo/dataset/dataset-1/labels"}""",
+      """{"items": ["big", "data"], "path": "/api/foo/dataset/dataset-1/labels"}""",
       ResultSet(Seq("big", "data"), "/api/foo/dataset/dataset-1/labels"))
   }
 
@@ -148,7 +293,6 @@ class JsnSpec extends FlatSpec {
     assertWrites(
       """|{
          |  "items": ["big", "data"],
-         |  "size": 2,
          |  "total": 1001,
          |  "path": "/api/foo/dataset/dataset-1/labels"
          |}
@@ -160,7 +304,6 @@ class JsnSpec extends FlatSpec {
     assertWrites(
       """|{
          |  "items": ["big", "data"],
-         |  "size": 2,
          |  "total": 1001,
          |  "path": "/api/foo/dataset/dataset-1/labels",
          |  "next_path": "/api/foo/dataset/dataset-1/labels?after=123412345"
@@ -171,6 +314,39 @@ class JsnSpec extends FlatSpec {
         "/api/foo/dataset/dataset-1/labels",
         total = Some(1001),
         nextPath = Some("/api/foo/dataset/dataset-1/labels?after=123412345")))
+  }
+
+  "Result set JSON deserialization" should "create basic JSON" in {
+    assertReads(
+      ResultSet(Seq("big", "data"), "/api/foo/dataset/dataset-1/labels"),
+      """{"items": ["big", "data"], "path": "/api/foo/dataset/dataset-1/labels"}""")
+  }
+
+  it should "handle total" in {
+    assertReads(
+      ResultSet(Seq("big", "data"), "/api/foo/dataset/dataset-1/labels", total = Some(1001)),
+      """|{
+         |  "items": ["big", "data"],
+         |  "total": 1001,
+         |  "path": "/api/foo/dataset/dataset-1/labels"
+         |}
+         |""".stripMargin)
+  }
+
+  it should "handle next_path" in {
+    assertReads(
+      ResultSet(
+        Seq("big", "data"),
+        "/api/foo/dataset/dataset-1/labels",
+        total = Some(1001),
+        nextPath = Some("/api/foo/dataset/dataset-1/labels?after=123412345")),
+      """|{
+         |  "items": ["big", "data"],
+         |  "total": 1001,
+         |  "path": "/api/foo/dataset/dataset-1/labels",
+         |  "next_path": "/api/foo/dataset/dataset-1/labels?after=123412345"
+         |}
+         |""".stripMargin)
   }
 
   "Dataset JSON serialization" should "create basic JSON" in {
@@ -192,12 +368,12 @@ class JsnSpec extends FlatSpec {
   it should "handle name" in {
     assertWrites(
       """|{
-       |  "id": "hello-dataset",
-       |  "type": "classification",
-       |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
-       |  "name": "Hello dataset"
-       |}
-       |""".stripMargin,
+         |  "id": "hello-dataset",
+         |  "type": "classification",
+         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
+         |  "name": "Hello dataset"
+         |}
+         |""".stripMargin,
       Dataset(
         "hello-dataset",
         'c',
@@ -261,62 +437,6 @@ class JsnSpec extends FlatSpec {
         size = Some(100)))
   }
 
-  it should "handle items" in {
-    assertWrites(
-      """|{
-         |  "id": "hello-dataset",
-         |  "type": "classification",
-         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
-         |  "data": {
-         |    "size": 2,
-         |    "path": "/api/foo-org/dataset/bar/data",
-         |    "items": [
-         |      {"data": {"text": "Hello world", "score": 0.4}},
-         |      {"data": {"text": "So long, folks", "score": 0.3}}
-         |    ]
-         |  }
-         |}
-         |""".stripMargin,
-      Dataset(
-        "hello-dataset",
-        'c',
-        Json.obj(
-          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
-            "score" -> Json.obj("type" -> "number"))),
-        itemsSample = Some(ResultSet(
-          Seq(
-            Datum(Json.obj("text" -> "Hello world", "score" -> 0.4)),
-            Datum(Json.obj("text" -> "So long, folks", "score" -> 0.3))),
-          "/api/foo-org/dataset/bar/data"))))
-  }
-
-  it should "handle experiments" in {
-    assertWrites(
-      """|{
-         |  "id": "hello-dataset",
-         |  "type": "classification",
-         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
-         |  "experiments": {
-         |    "size": 2,
-         |    "path": "/api/foo-org/dataset/bar/experiments",
-         |    "items": [
-         |      {"id": "hello-world-1"},
-         |      {"id": "hello-world-2"}
-         |    ]
-         |  }
-         |}
-         |""".stripMargin,
-      Dataset(
-        "hello-dataset",
-        'c',
-        Json.obj(
-          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
-            "score" -> Json.obj("type" -> "number"))),
-        experimentSample = Some(ResultSet(
-          Seq(Experiment("hello-world-1"), Experiment("hello-world-2")),
-          "/api/foo-org/dataset/bar/experiments"))))
-  }
-
   it should "handle labels" in {
     assertWrites(
       """|{
@@ -342,7 +462,6 @@ class JsnSpec extends FlatSpec {
          |  "type": "classification",
          |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
          |  "comments": {
-         |    "size": 2,
          |    "path": "/api/foo-org/dataset/bar/comments",
          |    "items": [
          |      {"username": "john", "comment": "This is cool"},
@@ -362,31 +481,142 @@ class JsnSpec extends FlatSpec {
           "/api/foo-org/dataset/bar/comments"))))
   }
 
+  "Dataset JSON deserialization" should "create basic JSON" in {
+    assertReads(
+      Dataset(
+        "hello-dataset",
+        'c',
+        Json.obj(
+          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
+            "score" -> Json.obj("type" -> "number")))),
+      """|{
+         |  "id": "hello-dataset",
+         |  "type": "classification",
+         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}}
+         |}
+         |""".stripMargin)
+  }
+
+  it should "handle name" in {
+    assertReads(
+      Dataset(
+        "hello-dataset",
+        'c',
+        Json.obj(
+          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
+            "score" -> Json.obj("type" -> "number"))),
+        name = Some("Hello dataset")),
+      """|{
+         |  "id": "hello-dataset",
+         |  "type": "classification",
+         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
+         |  "name": "Hello dataset"
+         |}
+         |""".stripMargin)
+  }
+
+  it should "handle created date" in {
+    assertReads(
+      Dataset(
+        "hello-dataset",
+        'c',
+        Json.obj(
+          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
+            "score" -> Json.obj("type" -> "number"))),
+        createdAt = Some(new DateTime(2005, 3, 26, 12, 0, 0, 0, UTC))),
+      """|{
+         |  "id": "hello-dataset",
+         |  "type": "classification",
+         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
+         |  "created_at": "2005-03-26T12:00:00.000Z"
+         |}
+         |""".stripMargin)
+  }
+
+  it should "hanlde updated date" in {
+    assertReads(
+      Dataset(
+        "hello-dataset",
+        'c',
+        Json.obj(
+          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
+            "score" -> Json.obj("type" -> "number"))),
+        updatedAt = Some(new DateTime(2005, 3, 26, 12, 0, 0, 0, UTC))),
+      """|{
+         |  "id": "hello-dataset",
+         |  "type": "classification",
+         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
+         |  "updated_at": "2005-03-26T12:00:00.000Z"
+         |}
+         |""".stripMargin)
+  }
+
+  it should "handle size" in {
+    assertReads(
+      Dataset(
+        "hello-dataset",
+        'c',
+        Json.obj(
+          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
+            "score" -> Json.obj("type" -> "number"))),
+        size = Some(100)),
+      """|{
+         |  "id": "hello-dataset",
+         |  "type": "classification",
+         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
+         |  "size": 100
+         |}
+         |""".stripMargin)
+  }
+
+  it should "handle labels" in {
+    assertReads(
+      Dataset(
+        "hello-dataset",
+        'c',
+        Json.obj(
+          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
+            "score" -> Json.obj("type" -> "number"))),
+        labels = Some(Seq("big", "data"))),
+      """|{
+         |  "id": "hello-dataset",
+         |  "type": "classification",
+         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
+         |  "labels": ["big", "data"]
+         |}
+         |""".stripMargin)
+  }
+
+  it should "handle comments" in {
+    assertReads(
+      Dataset(
+        "hello-dataset",
+        'c',
+        Json.obj(
+          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
+            "score" -> Json.obj("type" -> "number"))),
+        comments = Some(ResultSet(
+          Seq(Comment("john", "This is cool"), Comment("mary", "Hello world")),
+          "/api/foo-org/dataset/bar/comments"))),
+      """|{
+         |  "id": "hello-dataset",
+         |  "type": "classification",
+         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
+         |  "comments": {
+         |    "path": "/api/foo-org/dataset/bar/comments",
+         |    "items": [
+         |      {"username": "john", "comment": "This is cool"},
+         |      {"username": "mary", "comment": "Hello world"}
+         |    ]
+         |  }
+         |}
+         |""".stripMargin)
+  }
+
   "Experiment JSON serialization" should "create basic JSON" in {
     assertWrites(
       """{"id": "hello-world"}""",
       Experiment("hello-world"))
-  }
-
-  it should "handle datasets" in {
-    assertWrites(
-      """|{
-         |  "id": "hello-world",
-         |  "datasets": [
-         |    {
-         |      "id": "hello-dataset",
-         |      "type": "classification",
-         |      "schema": {"properties": {"text": {"type": "string"}}}
-         |     }
-         |  ]
-         |}""".stripMargin,
-      Experiment("hello-world",
-        datasets = Some(Seq(Dataset(
-          "hello-dataset",
-          'c',
-          Json.obj("properties" ->
-            Json.obj("text" ->
-              Json.obj("type" -> "string"))))))))
   }
 
   it should "handle datasetIds" in {
@@ -419,24 +649,6 @@ class JsnSpec extends FlatSpec {
       Experiment("hello-world", size = Some(1000)))
   }
 
-  it should "handle predictions" in {
-    assertWrites(
-      """|{
-         |  "id": "hello-world",
-         |  "predictions": {
-         |    "size": 2,
-         |    "items": [{"value": "yes"}, {"value": "no"}],
-         |    "path": "/api/foo-org/experiments/hello-world/predictions"
-         |  }
-         |}
-         |""".stripMargin,
-      Experiment(
-        "hello-world",
-        predictionsSample = Some(ResultSet(
-          Seq(Prediction(Right("yes")), Prediction(Right("no"))),
-          "/api/foo-org/experiments/hello-world/predictions"))))
-  }
-
   it should "handle labels" in {
     assertWrites(
       """{"id": "hello-world", "labels": ["big", "data"]}""",
@@ -448,7 +660,6 @@ class JsnSpec extends FlatSpec {
       """|{
          |  "id": "hello-world",
          |  "comments": {
-         |    "size": 2,
          |    "items": [
          |      {"username": "john", "comment": "yo"},
          |      {"username": "mary", "comment": "lo"}
@@ -462,6 +673,68 @@ class JsnSpec extends FlatSpec {
         comments = Some(ResultSet(
           Seq(Comment("john", "yo"), Comment("mary", "lo")),
           "/api/foo-org/experiments/hello-world/comments"))))
+  }
+
+  "Experiment JSON deserialization" should "create basic JSON" in {
+    assertReads(
+      Experiment("hello-world"),
+      """{"id": "hello-world"}""")
+  }
+
+  it should "handle datasetIds" in {
+    assertReads(
+      Experiment("hello-world", datasetIds = Some(Seq("foo", "bar", "baz"))),
+      """{"id": "hello-world", "dataset_ids": ["foo", "bar", "baz"]}""")
+  }
+
+  it should "handle name" in {
+    assertReads(
+      Experiment("hello-world", name = Some("Hello world!")),
+      """{"id": "hello-world", "name": "Hello world!"}""")
+  }
+
+  it should "handle createdAt" in {
+    assertReads(
+      Experiment("hello-world", createdAt = Some(new DateTime(2005, 3, 26, 12, 0, 0, 0, UTC))),
+      """{"id": "hello-world", "created_at": "2005-03-26T12:00:00.000Z"}""")
+  }
+
+  it should "handle updatedAt" in {
+    assertReads(
+      Experiment("hello-world", updatedAt = Some(new DateTime(2005, 3, 26, 12, 0, 0, 0, UTC))),
+      """{"id": "hello-world", "updated_at": "2005-03-26T12:00:00.000Z"}""")
+  }
+
+  it should "handle size" in {
+    assertReads(
+      Experiment("hello-world", size = Some(1000)),
+      """{"id": "hello-world", "size": 1000}""")
+  }
+
+  it should "handle labels" in {
+    assertReads(
+      Experiment("hello-world", labels = Some(Seq("big", "data"))),
+      """{"id": "hello-world", "labels": ["big", "data"]}""")
+  }
+
+  it should "handle comments" in {
+    assertReads(
+      Experiment(
+        "hello-world",
+        comments = Some(ResultSet(
+          Seq(Comment("john", "yo"), Comment("mary", "lo")),
+          "/api/foo-org/experiments/hello-world/comments"))),
+      """|{
+         |  "id": "hello-world",
+         |  "comments": {
+         |    "items": [
+         |      {"username": "john", "comment": "yo"},
+         |      {"username": "mary", "comment": "lo"}
+         |    ],
+         |    "path": "/api/foo-org/experiments/hello-world/comments"
+         |  }
+         |}
+         |""".stripMargin)
   }
 
   "Prediction JSON serialization" should "handle categorical predictions" in {
@@ -482,12 +755,6 @@ class JsnSpec extends FlatSpec {
     assertWrites(
       """{"data_id": "item-123", "value": "yes"}""",
       Prediction(Right("yes"), datumId = Some("item-123")))
-  }
-
-  it should "handle experiment" in {
-    assertWrites(
-      """{"value": "yes", "experiment": {"id": "hello-world"}}""",
-      Prediction(Right("yes"), experiment = Some(Experiment("hello-world"))))
   }
 
   it should "handle score" in {
@@ -513,7 +780,6 @@ class JsnSpec extends FlatSpec {
       """|{
          |  "value": "yes",
          |  "comments": {
-         |    "size": 2,
          |    "items": [{"username": "john", "comment": "yo"}, {"username": "mary", "comment": "lo"}],
          |    "path": "/api/foo-org/experiment/hello-world/1234abcde/comments"
          |  }
@@ -525,5 +791,60 @@ class JsnSpec extends FlatSpec {
           Seq(Comment("john", "yo"), Comment("mary", "lo")),
           "/api/foo-org/experiment/hello-world/1234abcde/comments"))))
 
+  }
+
+  "Prediction JSON deserialization" should "handle categorical predictions" in {
+    assertReads(Prediction(Right("yes")), """{"value": "yes"}""")
+  }
+
+  it should "handle real valued predictions" in {
+    assertReads(Prediction(Left(0.456)), """{"value": 0.456}""")
+  }
+
+  it should "handle inputs" in {
+    assertReads(
+      Prediction(Left(0.456), datum = Some(Datum(Json.obj("text" -> "Yo")))),
+      """{"inputs": {"data": {"text": "Yo"}}, "value": 0.456}""")
+  }
+
+  it should "handle data_id" in {
+    assertReads(
+      Prediction(Right("yes"), datumId = Some("item-123")),
+      """{"data_id": "item-123", "value": "yes"}""")
+  }
+
+  it should "handle score" in {
+    assertReads(
+      Prediction(Left(0.234), score = Some(0.998)),
+      """{"value": 0.234, "score": 0.998}""")
+  }
+
+  it should "handle createdAt" in {
+    assertReads(
+      Prediction(Right("yes"), createdAt = Some(new DateTime(2005, 3, 26, 12, 0, 0, 0, UTC))),
+      """{"value": "yes", "created_at": "2005-03-26T12:00:00.000Z"}""")
+  }
+
+  it should "handle labels" in {
+    assertReads(
+      Prediction(Right("yes"), labels = Some(Seq("big", "data"))),
+      """{"value": "yes", "labels": ["big", "data"]}""")
+  }
+
+  it should "handle comments" in {
+    assertReads(
+      Prediction(
+        Right("yes"),
+        comments = Some(ResultSet(
+          Seq(Comment("john", "yo"), Comment("mary", "lo")),
+          "/api/foo-org/experiment/hello-world/1234abcde/comments"))),
+      """|{
+         |  "value": "yes",
+         |  "comments": {
+         |    "items": [{"username": "john", "comment": "yo"}, {"username": "mary", "comment": "lo"}],
+         |    "path": "/api/foo-org/experiment/hello-world/1234abcde/comments"
+         |  }
+         |}
+         |""".stripMargin)
   }
 }
