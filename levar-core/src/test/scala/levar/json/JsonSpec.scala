@@ -193,16 +193,14 @@ class JsonSpec extends FlatSpec {
          |  "id": "hello",
          |  "data": {"text": "Hello world!", "score": 123.4, "count": 987},
          |  "comments": {
-         |    "items": [{"username": "john", "comment": "this is cool!"}],
-         |    "path": "/api/foo/dataset/dataset-1/hello/comments"
+         |    "items": [{"username": "john", "comment": "this is cool!"}]
          |  }
          |}
          |""".stripMargin,
       Datum(
         Json.obj("text" -> "Hello world!", "score" -> 123.4, "count" -> 987),
         id = Some("hello"),
-        comments = Some(ResultSet(Seq(
-          Comment("john", "this is cool!")), "/api/foo/dataset/dataset-1/hello/comments"))))
+        comments = Some(ResultSet(Seq(Comment("john", "this is cool!"))))))
   }
 
   "Datum JSON deserialization" should "create basic JSON" in {
@@ -270,34 +268,35 @@ class JsonSpec extends FlatSpec {
       Datum(
         Json.obj("text" -> "Hello world!", "score" -> 123.4, "count" -> 987),
         id = Some("hello"),
-        comments = Some(ResultSet(Seq(
-          Comment("john", "this is cool!")), "/api/foo/dataset/dataset-1/hello/comments"))),
+        comments = Some(ResultSet(Seq(Comment("john", "this is cool!"))))),
       """|{
          |  "id": "hello",
          |  "data": {"text": "Hello world!", "score": 123.4, "count": 987},
          |  "comments": {
-         |    "items": [{"username": "john", "comment": "this is cool!"}],
-         |    "path": "/api/foo/dataset/dataset-1/hello/comments"
+         |    "items": [{"username": "john", "comment": "this is cool!"}]
          |  }
          |}
          |""".stripMargin)
   }
 
   "Result set JSON serialization" should "create basic JSON" in {
+    assertWrites("""{"items": ["big", "data"]}""", ResultSet(Seq("big", "data")))
+  }
+
+  it should "handle paths" in {
     assertWrites(
       """{"items": ["big", "data"], "path": "/api/foo/dataset/dataset-1/labels"}""",
-      ResultSet(Seq("big", "data"), "/api/foo/dataset/dataset-1/labels"))
+      ResultSet(Seq("big", "data"), Some("/api/foo/dataset/dataset-1/labels")))
   }
 
   it should "handle total" in {
     assertWrites(
       """|{
          |  "items": ["big", "data"],
-         |  "total": 1001,
-         |  "path": "/api/foo/dataset/dataset-1/labels"
+         |  "total": 1001
          |}
          |""".stripMargin,
-      ResultSet(Seq("big", "data"), "/api/foo/dataset/dataset-1/labels", total = Some(1001)))
+      ResultSet(Seq("big", "data"), total = Some(1001)))
   }
 
   it should "handle next_path" in {
@@ -305,30 +304,31 @@ class JsonSpec extends FlatSpec {
       """|{
          |  "items": ["big", "data"],
          |  "total": 1001,
-         |  "path": "/api/foo/dataset/dataset-1/labels",
          |  "next_path": "/api/foo/dataset/dataset-1/labels?after=123412345"
          |}
          |""".stripMargin,
       ResultSet(
         Seq("big", "data"),
-        "/api/foo/dataset/dataset-1/labels",
         total = Some(1001),
         nextPath = Some("/api/foo/dataset/dataset-1/labels?after=123412345")))
   }
 
   "Result set JSON deserialization" should "create basic JSON" in {
+    assertReads(ResultSet(Seq("big", "data")), """{"items": ["big", "data"]}""")
+  }
+
+  it should "handle paths" in {
     assertReads(
-      ResultSet(Seq("big", "data"), "/api/foo/dataset/dataset-1/labels"),
+      ResultSet(Seq("big", "data"), Some("/api/foo/dataset/dataset-1/labels")),
       """{"items": ["big", "data"], "path": "/api/foo/dataset/dataset-1/labels"}""")
   }
 
   it should "handle total" in {
     assertReads(
-      ResultSet(Seq("big", "data"), "/api/foo/dataset/dataset-1/labels", total = Some(1001)),
+      ResultSet(Seq("big", "data"), total = Some(1001)),
       """|{
          |  "items": ["big", "data"],
-         |  "total": 1001,
-         |  "path": "/api/foo/dataset/dataset-1/labels"
+         |  "total": 1001
          |}
          |""".stripMargin)
   }
@@ -337,13 +337,11 @@ class JsonSpec extends FlatSpec {
     assertReads(
       ResultSet(
         Seq("big", "data"),
-        "/api/foo/dataset/dataset-1/labels",
         total = Some(1001),
         nextPath = Some("/api/foo/dataset/dataset-1/labels?after=123412345")),
       """|{
          |  "items": ["big", "data"],
          |  "total": 1001,
-         |  "path": "/api/foo/dataset/dataset-1/labels",
          |  "next_path": "/api/foo/dataset/dataset-1/labels?after=123412345"
          |}
          |""".stripMargin)
@@ -462,7 +460,6 @@ class JsonSpec extends FlatSpec {
          |  "type": "classification",
          |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
          |  "comments": {
-         |    "path": "/api/foo-org/dataset/bar/comments",
          |    "items": [
          |      {"username": "john", "comment": "This is cool"},
          |      {"username": "mary", "comment": "Hello world"}
@@ -477,8 +474,8 @@ class JsonSpec extends FlatSpec {
           "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
             "score" -> Json.obj("type" -> "number"))),
         comments = Some(ResultSet(
-          Seq(Comment("john", "This is cool"), Comment("mary", "Hello world")),
-          "/api/foo-org/dataset/bar/comments"))))
+          Seq(Comment("john", "This is cool"), Comment("mary", "Hello world"))))))
+
   }
 
   "Dataset JSON deserialization" should "create basic JSON" in {
@@ -596,14 +593,12 @@ class JsonSpec extends FlatSpec {
           "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
             "score" -> Json.obj("type" -> "number"))),
         comments = Some(ResultSet(
-          Seq(Comment("john", "This is cool"), Comment("mary", "Hello world")),
-          "/api/foo-org/dataset/bar/comments"))),
+          Seq(Comment("john", "This is cool"), Comment("mary", "Hello world"))))),
       """|{
          |  "id": "hello-dataset",
          |  "type": "classification",
          |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
          |  "comments": {
-         |    "path": "/api/foo-org/dataset/bar/comments",
          |    "items": [
          |      {"username": "john", "comment": "This is cool"},
          |      {"username": "mary", "comment": "Hello world"}
@@ -663,16 +658,14 @@ class JsonSpec extends FlatSpec {
          |    "items": [
          |      {"username": "john", "comment": "yo"},
          |      {"username": "mary", "comment": "lo"}
-         |    ],
-         |    "path": "/api/foo-org/experiments/hello-world/comments"
+         |    ]
          |  }
          |}
          |""".stripMargin,
       Experiment(
         "hello-world",
         comments = Some(ResultSet(
-          Seq(Comment("john", "yo"), Comment("mary", "lo")),
-          "/api/foo-org/experiments/hello-world/comments"))))
+          Seq(Comment("john", "yo"), Comment("mary", "lo"))))))
   }
 
   "Experiment JSON deserialization" should "create basic JSON" in {
@@ -722,16 +715,14 @@ class JsonSpec extends FlatSpec {
       Experiment(
         "hello-world",
         comments = Some(ResultSet(
-          Seq(Comment("john", "yo"), Comment("mary", "lo")),
-          "/api/foo-org/experiments/hello-world/comments"))),
+          Seq(Comment("john", "yo"), Comment("mary", "lo"))))),
       """|{
          |  "id": "hello-world",
          |  "comments": {
          |    "items": [
          |      {"username": "john", "comment": "yo"},
          |      {"username": "mary", "comment": "lo"}
-         |    ],
-         |    "path": "/api/foo-org/experiments/hello-world/comments"
+         |    ]
          |  }
          |}
          |""".stripMargin)
@@ -780,16 +771,17 @@ class JsonSpec extends FlatSpec {
       """|{
          |  "value": "yes",
          |  "comments": {
-         |    "items": [{"username": "john", "comment": "yo"}, {"username": "mary", "comment": "lo"}],
-         |    "path": "/api/foo-org/experiment/hello-world/1234abcde/comments"
+         |    "items": [
+         |      {"username": "john", "comment": "yo"},
+         |      {"username": "mary", "comment": "lo"}
+         |    ]
          |  }
          |}
          |""".stripMargin,
       Prediction(
         Right("yes"),
         comments = Some(ResultSet(
-          Seq(Comment("john", "yo"), Comment("mary", "lo")),
-          "/api/foo-org/experiment/hello-world/1234abcde/comments"))))
+          Seq(Comment("john", "yo"), Comment("mary", "lo"))))))
 
   }
 
@@ -836,13 +828,14 @@ class JsonSpec extends FlatSpec {
       Prediction(
         Right("yes"),
         comments = Some(ResultSet(
-          Seq(Comment("john", "yo"), Comment("mary", "lo")),
-          "/api/foo-org/experiment/hello-world/1234abcde/comments"))),
+          Seq(Comment("john", "yo"), Comment("mary", "lo"))))),
       """|{
          |  "value": "yes",
          |  "comments": {
-         |    "items": [{"username": "john", "comment": "yo"}, {"username": "mary", "comment": "lo"}],
-         |    "path": "/api/foo-org/experiment/hello-world/1234abcde/comments"
+         |    "items": [
+         |      {"username": "john", "comment": "yo"},
+         |      {"username": "mary", "comment": "lo"}
+         |    ]
          |  }
          |}
          |""".stripMargin)

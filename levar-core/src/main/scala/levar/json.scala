@@ -12,10 +12,10 @@ package object json {
   import org.joda.time.DateTimeZone.UTC
 
   implicit val JodaDateFormat = new Format[DateTime] {
+    private val tsparser = ISODateTimeFormat.dateTimeParser()
     private val reader = Reads.StringReads.map(tsparser.parseDateTime(_).withZone(UTC))
     def reads(js: JsValue): JsResult[DateTime] = reader.reads(js)
 
-    private val tsparser = ISODateTimeFormat.dateTimeParser()
     def writes(ts: DateTime): JsValue = JsString(ts.withZone(UTC).toString())
   }
 
@@ -54,7 +54,7 @@ package object json {
 
   implicit def ResultSetFormat[A](implicit fmt: Format[A]): Format[ResultSet[A]] = (
     (__ \ "items").format[Seq[A]] and
-    (__ \ "path").format[String] and
+    (__ \ "path").formatNullable[String] and
     (__ \ "total").formatNullable[Int] and
     (__ \ "next_path").formatNullable[String]
   )(ResultSet.apply _, unlift(ResultSet.unapply))
@@ -83,6 +83,9 @@ package object json {
     (__ \ "labels").formatNullable[Seq[String]] and
     (__ \ "comments").formatNullable[ResultSet[Comment]]
   )(Dataset.apply _, unlift(Dataset.unapply))
+
+  implicit lazy val DatasetUpdateFormat: Format[Dataset.Update] = (
+    (__ \ "id").formatNullable[String].inmap(Dataset.Update.apply _, unlift(Dataset.Update.unapply)))
 
   implicit lazy val ExperimentFormat: Format[Experiment] = (
     (__ \ "id").format[String] and

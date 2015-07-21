@@ -2,15 +2,18 @@ package db
 
 import org.scalatest._
 import utils._
+import levar._
+import play.api.libs.json._
+import org.joda.time._
 
 class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
 
   override def beforeEach() {
-    impl.setUp
+    impl.setUp()
   }
 
   override def afterEach() {
-    impl.tearDown
+    impl.tearDown()
   }
 
   "The DB" should "setUp and tearDown without breaking" in {
@@ -385,5 +388,53 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
     if (!caught) {
       fail("did not catch invalid org name")
     }
+  }
+
+  def setupOrg1() {
+    info("adding user jt")
+    db.impl.addAuth("jt", "jt-pass")
+    info("adding org1")
+    db.impl.addOrg("org1", Seq("jt"))
+  }
+
+  val basicSchema = Json.parse("""{"properties":{"name":{"type":"string"}}}""")
+
+  "impl.createDataset" should "create a new dataset" in {
+    setupOrg1()
+    info("adding dataset ds1")
+    val ds = Dataset("ds1", 'c', basicSchema)
+    val fetched = db.impl.createDataset("org1", ds)
+    info("checking returned dataset = ds1")
+    assert(fetched.id == ds.id)
+    assert(fetched.dtype == ds.dtype)
+    assert(fetched.schema == ds.schema)
+    info("checking new created date")
+    fetched.createdAt match {
+      case Some(createdAt) => {
+        val now = new DateTime()
+        assert(now.getMillis - createdAt.getMillis < 1000)
+      }
+      case None => {
+        fail("No created_at in returned dataset")
+      }
+    }
+    info("checking updated date")
+    fetched.updatedAt match {
+      case Some(updatedAt) => {
+        assert(updatedAt == fetched.createdAt.get)
+      }
+      case None => {
+        fail("No updated_at in returned dataset")
+      }
+    }
+  }
+
+  "impl.getDataset" should "return a dataset" in {
+    setupOrg1()
+    info("adding dataset ds1")
+    val ds = Dataset("ds1", 'c', basicSchema)
+    val fetchedOnCreate = db.impl.createDataset("org1", ds)
+    val fetchedOnAsk = db.impl.getDataset("org1", ds.id)
+    assert(fetchedOnCreate == fetchedOnAsk)
   }
 }

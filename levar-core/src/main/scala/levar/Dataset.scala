@@ -12,6 +12,8 @@ object Dataset {
   val RegressionType = 'r'
 
   val TypeName = Map(ClassificationType -> "classification", RegressionType -> "regression")
+
+  case class Update(id: Option[String])
 }
 
 /**
@@ -28,12 +30,19 @@ object Dataset {
  * @param comments comments made on the data set
  */
 case class Dataset(
-  id: String,
-  dtype: Char,
-  schema: JsValue,
-  name: Option[String] = None,
-  createdAt: Option[DateTime] = None,
-  updatedAt: Option[DateTime] = None,
-  size: Option[Int] = None,
-  labels: Option[Seq[String]] = None,
-  comments: Option[ResultSet[Comment]] = None)
+    id: String,
+    dtype: Char,
+    schema: JsValue,
+    name: Option[String] = None,
+    createdAt: Option[DateTime] = None,
+    updatedAt: Option[DateTime] = None,
+    size: Option[Int] = None,
+    labels: Option[Seq[String]] = None,
+    comments: Option[ResultSet[Comment]] = None) {
+
+  import Dataset._
+
+  require(dtype == ClassificationType || dtype == RegressionType)
+
+  def typeName = TypeName(dtype)
+}

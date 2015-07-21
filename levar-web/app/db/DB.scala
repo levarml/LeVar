@@ -1,5 +1,7 @@
 package db
 
+import levar._
+
 class CannotCreateOrganizationException(msg: String) extends Exception(msg)
 class OrganizationNotFoundException(msg: String) extends Exception(msg)
 class CannotCreateUserException(msg: String) extends Exception(msg)
@@ -7,6 +9,10 @@ class ForbiddenException(msg: String) extends Exception(msg)
 class UnauthorizedException(msg: String) extends Exception(msg)
 class UserNotFoundException(msg: String) extends Exception(msg)
 class UnexpectedResultException(msg: String) extends Exception(msg)
+
+class DatasetIdAlreadyExists(msg: String) extends Exception(msg)
+
+class NotFoundInDb extends Exception
 
 /**
  * Database access layer
@@ -126,6 +132,45 @@ trait Database {
    * @return true if the user has access to the organization
    */
   def userHasOrgAccess(user: String, org: String): Boolean
+
+  /**
+   * Search for datasets
+   *
+   * @param org the organization owner of the datasets
+   * @param path the path reference to include in the result set
+   * @return a result set of datasets
+   */
+  def searchDatasets(org: String, afterDate: Long): ResultSet[Dataset]
+
+  /**
+   * Add a new dataset to the DB
+   *
+   * @param org the associated organization
+   * @param ds the dataset to be added to the DB
+   * @return the same dataset with optionally some more metadata
+   */
+  def createDataset(org: String, ds: Dataset): Dataset
+
+  /**
+   * Look up a dataset in the DB
+   *
+   * Throws a {{NotFoundInDb}} exception if the resource isn't found
+   *
+   * @param org the org associated with the dataset
+   * @param id the dataset ID
+   * @return the dataset in the org with the provided ID
+   */
+  def getDataset(org: String, id: String): Dataset
+
+  /**
+   * Update a dataset in the DB
+   *
+   * @param org the org associated with the dataset
+   * @param id the dataset ID
+   * @param updates the changes to make to the dataset
+   * @return the upddated dataset
+   */
+  def updateDataset(org: String, id: String, updates: Dataset.Update): Dataset
 }
 
 /**
@@ -141,6 +186,9 @@ object impl extends Database {
   import utils.validateIdentifier
   import org.postgresql.util.PSQLException
   import org.postgresql.util.PSQLState._
+  import play.api.libs.json._
+  import org.joda.time.DateTime
+  import org.joda.time.DateTimeZone.UTC
 
   val logger: Logger = Logger("dao.impl")
 
@@ -463,5 +511,143 @@ object impl extends Database {
       .single
       .apply()
       .get
+  }
+
+  def searchDatasets(org: String, afterDate: Long = 32503680000L) = DB.readOnly { implicit session =>
+    val datasets = sql"""
+          select
+          dataset.provided_id provided_id,
+          dataset.dataset_type::text dataset_type,
+          dataset.schema::text dschema,
+          extract(epoch from dataset.created_at) created_at,
+          extract(epoch from dataset.updated_at) updated_at
+          from dataset inner join org on dataset.org_id = org.org_id
+          where org.provided_id = ${org}
+          and dataset.created_at < timestamp with time zone 'epoch' + ${afterDate} * interval '1 second'
+          order by dataset.created_at
+          limit 100"""
+      .map { rs =>
+        Dataset(
+          rs.string("provided_id"),
+          rs.string("dataset_type")(0),
+          Json.toJson(rs.string("dschema")),
+          createdAt = Some(jodaFromEpoch(rs.double("created_at"))),
+          updatedAt = Some(jodaFromEpoch(rs.double("updated_at"))))
+      }
+      .list
+      .apply()
+    ResultSet(datasets)
+  }
+
+  private def jodaFromEpoch(epoch: Double) = new DateTime((1000 * epoch).toLong).withZone(UTC)
+
+  def createDataset(org: String, ds: Dataset) = DB.localTx { implicit session =>
+    val newId = sql"""
+          insert into dataset (org_id, provided_id, dataset_type, schema)
+          select org.org_id, ${ds.id}, ${ds.dtype}, ${ds.schema.toString}::json
+          from org where org.provided_id = ${org}
+          returning dataset_id::text"""
+      .map(_.string(1))
+      .single
+      .apply()
+    newId match {
+      case Some(uuid) => {
+        sql"""
+          select
+          dataset.provided_id,
+          dataset.dataset_type::text,
+          dataset.schema dschema,
+          extract(epoch from created_at) created_at,
+          extract(epoch from updated_at) updated_at
+          from dataset
+          where dataset_id = ${uuid}::uuid"""
+          .map { rs =>
+            Dataset(
+              rs.string("provided_id"),
+              rs.string("dataset_type")(0),
+              Json.parse(rs.string("dschema")),
+              createdAt = Some(jodaFromEpoch(rs.double("created_at"))),
+              updatedAt = Some(jodaFromEpoch(rs.double("updated_at"))))
+          }
+          .single
+          .apply()
+          .get
+      }
+
+      case None => throw new OrganizationNotFoundException(org)
+
+    }
+  }
+
+  def getDataset(org: String, id: String): Dataset = DB.readOnly { implicit session =>
+    val dsOpt = sql"""
+      select
+      dataset.provided_id,
+      dataset.dataset_type::text,
+      dataset.schema dschema,
+      extract(epoch from dataset.created_at) created_at,
+      extract(epoch from dataset.updated_at) updated_at
+      from dataset inner join org on dataset.org_id = org.org_id
+      where dataset.provided_id = ${id}"""
+      .map { rs =>
+        Dataset(
+          rs.string("provided_id"),
+          rs.string("dataset_type")(0),
+          Json.parse(rs.string("dschema")),
+          createdAt = Some(jodaFromEpoch(rs.double("created_at"))),
+          updatedAt = Some(jodaFromEpoch(rs.double("updated_at"))))
+      }
+      .single
+      .apply()
+
+    dsOpt match {
+      case Some(ds) => ds
+      case None => throw new NotFoundInDb()
+    }
+  }
+
+  def updateDataset(org: String, id: String, updates: Dataset.Update) = DB.localTx { implicit session =>
+    val idOpt = sql"""
+      select dataset.dataset_id::text dataset_id
+      from dataset inner join org on dataset.org_id = org.org_id
+      where org.provided_id = ${org} and dataset.provided_id = ${id}
+      """
+      .map(_.string("dataset_id"))
+      .single
+      .apply()
+
+    idOpt match {
+      case Some(uuid) => {
+        updates.id foreach { newProvidedId =>
+          sql"""
+          update dataset set provided_id = ${newProvidedId} where dataset_id = ${uuid}::uuid
+          """
+            .execute
+            .apply()
+        }
+        sql"""
+          select
+          dataset.provided_id,
+          dataset.dataset_type::text,
+          dataset.schema dschema,
+          extract(epoch from created_at) created_at,
+          extract(epoch from updated_at) updated_at
+          from dataset
+          where dataset_id = ${uuid}::uuid"""
+          .map { rs =>
+            Dataset(
+              rs.string("provided_id"),
+              rs.string("dataset_type")(0),
+              Json.parse(rs.string("dschema")),
+              createdAt = Some(jodaFromEpoch(rs.double("created_at"))),
+              updatedAt = Some(jodaFromEpoch(rs.double("updated_at"))))
+          }
+          .single
+          .apply()
+          .get
+
+      }
+      case None => throw new NotFoundInDb()
+    }
   }
 }
