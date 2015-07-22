@@ -14,6 +14,39 @@ object Dataset {
   val TypeName = Map(ClassificationType -> "classification", RegressionType -> "regression")
 
   case class Update(id: Option[String])
+
+  /**
+   * Validate the schema of a dataset.
+   *
+   * We're not implementing all of JSON schema here, or buying into
+   * a library which does. Just checking for the fields and values
+   * we'll need to validate data points later on.
+   */
+  def validSchema(schema: JsValue): Boolean = {
+    schema match {
+      case JsObject(fields) => {
+        fields.find(_._1 == "properties").map(_._2) match {
+          case Some(JsObject(props)) => {
+            props.nonEmpty && {
+              props.map(_._2).forall { spec =>
+                spec match {
+                  case JsObject(details) => {
+                    details.find(_._1 == "type").map(_._2) match {
+                      case Some(JsString(v)) => v == "string" || v == "number"
+                      case _ => false
+                    }
+                  }
+                  case _ => false
+                }
+              }
+            }
+          }
+          case _ => false
+        }
+      }
+      case _ => false
+    }
+  }
 }
 
 /**
@@ -42,7 +75,8 @@ case class Dataset(
 
   import Dataset._
 
-  require(dtype == ClassificationType || dtype == RegressionType)
+  require(dtype == ClassificationType || dtype == RegressionType, "invalid type")
+  require(validSchema(schema), "invalid schema")
 
   def typeName = TypeName(dtype)
 }

@@ -27,26 +27,38 @@ object DatasetController extends Controller {
   def create(org: String) = Authenticated { user =>
     HasOrgAccess(user, org) {
       Action(BodyParsers.parse.json) { implicit request =>
-        request.body.validate[Dataset].fold(
-          errors => BadRequest(JsError.toFlatJson(errors)),
-          { ds =>
-            try {
-              val saved = db.impl.createDataset(org, ds)
-              render {
-                case AcceptsText() => Ok(saved.toString)
-                case Accepts.Json() => Ok(Json.toJson(saved))
-              }
-            } catch {
-              case _: DatasetIdAlreadyExists => {
-                val msg = s"Dataset ID already exists: ${ds.id}"
+        try {
+          request.body.validate[Dataset].fold(
+            errors => BadRequest(JsError.toFlatJson(errors)),
+            { ds =>
+              try {
+                val saved = db.impl.createDataset(org, ds)
                 render {
-                  case AcceptsText() => BadRequest(msg)
-                  case Accepts.Json() => BadRequest(Json.toJson(Map("message" -> msg)))
+                  case AcceptsText() => Ok(saved.toString)
+                  case Accepts.Json() => Ok(Json.toJson(saved))
+                }
+              } catch {
+                case _: DatasetIdAlreadyExists => {
+                  val msg = s"Dataset ID already exists: ${ds.id}"
+                  render {
+                    case AcceptsText() => BadRequest(msg)
+                    case Accepts.Json() => BadRequest(Json.toJson(Map("message" -> msg)))
+                  }
                 }
               }
             }
+          )
+        } catch {
+          case e: IllegalArgumentException => {
+            if (e.getMessage == "requirement failed: invalid schema") {
+              BadRequest("invalid schema: " + request.body)
+            } else if (e.getMessage == "requirement failed: invalid type") {
+              BadRequest("invalid type: " + request.body)
+            } else {
+              throw e
+            }
           }
-        )
+        }
       }
     }
   }

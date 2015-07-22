@@ -530,7 +530,7 @@ object impl extends Database {
         Dataset(
           rs.string("provided_id"),
           rs.string("dataset_type")(0),
-          Json.toJson(rs.string("dschema")),
+          Json.parse(rs.string("dschema")),
           createdAt = Some(jodaFromEpoch(rs.double("created_at"))),
           updatedAt = Some(jodaFromEpoch(rs.double("updated_at"))))
       }
