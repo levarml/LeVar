@@ -203,6 +203,12 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
             fail("could not parse JSON as result set: " + response.body)
           }
         }
+        val ds1t = db.impl.getDataset("test-org", "ds1")
+        assert(ds1t.id == ds1.id)
+        assert(ds1t.dtype == ds1.dtype)
+        assert(ds1t.schema == ds1.schema)
+        assert(ds1t.createdAt != None)
+        assert(ds1t.updatedAt != None)
       }
     }
 
