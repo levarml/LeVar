@@ -619,11 +619,20 @@ object impl extends Database {
     idOpt match {
       case Some(uuid) => {
         updates.id foreach { newProvidedId =>
-          sql"""
-          update dataset set provided_id = ${newProvidedId} where dataset_id = ${uuid}::uuid
-          """
-            .execute
-            .apply()
+          try {
+            sql"""
+            update dataset set
+              provided_id = ${newProvidedId},
+              updated_at = current_timestamp
+            where dataset_id = ${uuid}::uuid
+            """
+              .execute
+              .apply()
+          } catch {
+            case e: PSQLException if e.getMessage.contains("duplicate key value violates unique constraint") => {
+              throw new DatasetIdAlreadyExists(newProvidedId)
+            }
+          }
         }
         sql"""
           select

@@ -13,7 +13,7 @@ object Dataset {
 
   val TypeName = Map(ClassificationType -> "classification", RegressionType -> "regression")
 
-  case class Update(id: Option[String])
+  case class Update(id: Option[String] = None)
 
   /**
    * Validate the schema of a dataset.

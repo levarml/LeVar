@@ -9,7 +9,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import play.api.Play.current
 import play.api.libs.ws.WSAuthScheme.BASIC
 import play.api.libs.json._
-import play.api.libs.json.Json.{ obj => j }
+import play.api.libs.json.Json.{ obj => j, toJson }
 import levar._
 import levar.json._
 
@@ -188,7 +188,7 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
           WS.url("http://localhost:3333/api/test-org/dataset")
             .withHeaders("Accept" -> "application/json")
             .withAuth("test-user", "test-pass", BASIC)
-            .post(Json.toJson(ds1))
+            .post(toJson(ds1))
         }
         assert(response.status == 200)
         response.json.asOpt[Dataset] match {
@@ -227,6 +227,84 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
         }
         assert(response.status == 400)
         assert(response.body.contains("invalid schema"))
+      }
+    }
+  }
+
+  "POST /api/test-org/datset/ds1" must {
+    "update the ID of a dataset" in {
+      setupTestUser()
+      db.impl.createDataset("test-org",
+        Dataset("ds1", 'c', j("properties" -> j("text" -> j("type" -> "string")))))
+      val u1 = Dataset.Update(id = Some("ds2"))
+      Thread.sleep(100)
+      running(new TestServer(3333, new FakeApplication())) {
+        val response = await {
+          WS.url("http://localhost:3333/api/test-org/dataset/ds1")
+            .withHeaders(
+              "Accept" -> "application/json",
+              "Content-type" -> "application/json")
+            .withAuth("test-user", "test-pass", BASIC)
+            .post(toJson(u1))
+        }
+        assert(response.status == 200)
+        response.json.asOpt[Dataset] match {
+          case Some(ds) => {
+            assert(ds.id == "ds2")
+            assert(ds.dtype == 'c')
+            assert(ds.schema == j("properties" -> j("text" -> j("type" -> "string"))))
+            assert(ds.createdAt != None)
+            assert(ds.updatedAt != None)
+            assert(ds.createdAt != ds.updatedAt)
+          }
+          case None => fail("could not parse response: " + response.body)
+        }
+      }
+      val ds = db.impl.getDataset("test-org", "ds2")
+      assert(ds.id == "ds2")
+      assert(ds.dtype == 'c')
+      assert(ds.schema == j("properties" -> j("text" -> j("type" -> "string"))))
+      assert(ds.createdAt != None)
+      assert(ds.updatedAt != None)
+      assert(ds.createdAt != ds.updatedAt)
+    }
+
+    "send back a 400 and do no updates if the ID is taken" in {
+      setupTestUser()
+      db.impl.createDataset("test-org",
+        Dataset("ds1", 'c', j("properties" -> j("text" -> j("type" -> "string")))))
+      db.impl.createDataset("test-org",
+        Dataset("ds2", 'r', j("properties" -> j("text" -> j("type" -> "string")))))
+      val u1 = Dataset.Update(id = Some("ds2"))
+      running(new TestServer(3333, new FakeApplication())) {
+        val response = await {
+          WS.url("http://localhost:3333/api/test-org/dataset/ds1")
+            .withHeaders(
+              "Accept" -> "application/json",
+              "Content-type" -> "application/json")
+            .withAuth("test-user", "test-pass", BASIC)
+            .post(toJson(u1))
+        }
+        assert(response.status == 400)
+      }
+    }
+
+    "send back a 404 if the dataset doesn't exist" in {
+      setupTestUser()
+      db.impl.createDataset("test-org",
+        Dataset("ds1", 'c', j("properties" -> j("text" -> j("type" -> "string")))))
+      val u1 = Dataset.Update(id = Some("ds2"))
+      Thread.sleep(100)
+      running(new TestServer(3333, new FakeApplication())) {
+        val response = await {
+          WS.url("http://localhost:3333/api/test-org/dataset/ds3")
+            .withHeaders(
+              "Accept" -> "application/json",
+              "Content-type" -> "application/json")
+            .withAuth("test-user", "test-pass", BASIC)
+            .post(toJson(u1))
+        }
+        assert(response.status == 404)
       }
     }
   }
