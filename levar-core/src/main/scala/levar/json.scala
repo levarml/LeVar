@@ -10,6 +10,8 @@ package object json {
   import org.joda.time.DateTime
   import org.joda.time.format._
   import org.joda.time.DateTimeZone.UTC
+  import scala.collection.mutable.Buffer
+  import Dataset._
 
   implicit val JodaDateFormat = new Format[DateTime] {
     private val tsparser = ISODateTimeFormat.dateTimeParser()
@@ -59,23 +61,66 @@ package object json {
     (__ \ "next_path").formatNullable[String]
   )(ResultSet.apply _, unlift(ResultSet.unapply))
 
-  val DatasetTypeFormat = new Format[Char] {
-    def reads(js: JsValue): JsResult[Char] = js match {
-      case JsString("classification") => JsSuccess(Dataset.ClassificationType)
-      case JsString("regression") => JsSuccess(Dataset.RegressionType)
-      case _ => JsError("could not parse classification type")
+  implicit val DatasetTypeFormat = new Format[DatasetType] {
+    def reads(js: JsValue): JsResult[DatasetType] = js match {
+      case JsString("classification") => JsSuccess(ClassificationType)
+      case JsString("regression") => JsSuccess(RegressionType)
+      case _ => JsError("could not parse classification type: " + js.toString)
     }
-    def writes(c: Char) = c match {
-      case Dataset.ClassificationType => JsString("classification")
-      case Dataset.RegressionType => JsString("regression")
-      case _ => JsString("unknown")
+    def writes(c: DatasetType) = c match {
+      case ClassificationType => JsString("classification")
+      case RegressionType => JsString("regression")
+    }
+  }
+
+  implicit val DataValidatorFormat = new Format[DataValidator] {
+    def reads(js: JsValue): JsResult[DataValidator] = js match {
+      case JsObject(things) => {
+        things.find(_._1 == "properties").map(_._2) match {
+          case Some(JsObject(fieldsJs)) => {
+            val errs = Buffer.empty[String]
+            val fields = Buffer.empty[(String, DataFieldType)]
+            fieldsJs foreach {
+              case (key, dtype) =>
+                dtype match {
+                  case JsObject(fieldData) => {
+                    fieldData.find(_._1 == "type").map(_._2) match {
+                      case Some(JsString("string")) => fields += ((key, StringField))
+                      case Some(JsString("number")) => fields += ((key, NumberField))
+                      case _ => errs += s"unrecognized field type for $key, ${dtype.toString}"
+                    }
+                  }
+                  case _ => errs += ("need to include \"type\" field for " + key)
+                }
+            }
+            if (errs.isEmpty) {
+              JsSuccess(DataValidator(fields: _*))
+            } else {
+              JsError(errs.mkString("; "))
+            }
+          }
+          case _ => JsError("require \"properties\" field")
+        }
+      }
+      case _ => JsError("require JSON object")
+    }
+
+    def writes(v: DataValidator): JsValue = {
+      val fields: Seq[(String, JsValue)] = v.fields map {
+        case (key, fieldType) =>
+          fieldType match {
+            case StringField => (key, Json.obj("type" -> "string"))
+            case NumberField => (key, Json.obj("type" -> "number"))
+          }
+      }
+      Json.obj("properties" -> Map(fields: _*))
     }
   }
 
   implicit lazy val DatasetFormat: Format[Dataset] = (
     (__ \ "id").format[String] and
-    (__ \ "type").format(DatasetTypeFormat) and
-    (__ \ "schema").format[JsValue] and
+    (__ \ "type").format[DatasetType] and
+    (__ \ "schema").format[DataValidator] and
     (__ \ "name").formatNullable[String] and
     (__ \ "created_at").formatNullable[DateTime] and
     (__ \ "updated_at").formatNullable[DateTime] and
@@ -84,8 +129,8 @@ package object json {
     (__ \ "comments").formatNullable[ResultSet[Comment]]
   )(Dataset.apply _, unlift(Dataset.unapply))
 
-  implicit lazy val DatasetUpdateFormat: Format[Dataset.Update] = (
-    (__ \ "id").formatNullable[String].inmap(Dataset.Update.apply _, unlift(Dataset.Update.unapply)))
+  implicit lazy val DatasetUpdateFormat: Format[Update] = (
+    (__ \ "id").formatNullable[String].inmap(Update.apply _, unlift(Update.unapply)))
 
   implicit lazy val ExperimentFormat: Format[Experiment] = (
     (__ \ "id").format[String] and

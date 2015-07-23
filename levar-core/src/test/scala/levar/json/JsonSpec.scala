@@ -3,6 +3,7 @@ package levar.json
 import org.scalatest._
 import play.api.libs.json._
 import levar._
+import levar.Dataset._
 import org.joda.time.DateTime
 import org.joda.time.DateTimeZone.UTC
 
@@ -357,10 +358,8 @@ class JsonSpec extends FlatSpec {
          |""".stripMargin,
       Dataset(
         "hello-dataset",
-        'c',
-        Json.obj(
-          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
-            "score" -> Json.obj("type" -> "number")))))
+        ClassificationType,
+        DataValidator("text" -> StringField, "score" -> NumberField)))
   }
 
   it should "handle name" in {
@@ -374,10 +373,8 @@ class JsonSpec extends FlatSpec {
          |""".stripMargin,
       Dataset(
         "hello-dataset",
-        'c',
-        Json.obj(
-          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
-            "score" -> Json.obj("type" -> "number"))),
+        ClassificationType,
+        DataValidator("text" -> StringField, "score" -> NumberField),
         name = Some("Hello dataset")))
   }
 
@@ -392,10 +389,8 @@ class JsonSpec extends FlatSpec {
          |""".stripMargin,
       Dataset(
         "hello-dataset",
-        'c',
-        Json.obj(
-          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
-            "score" -> Json.obj("type" -> "number"))),
+        ClassificationType,
+        DataValidator("text" -> StringField, "score" -> NumberField),
         createdAt = Some(new DateTime(2005, 3, 26, 12, 0, 0, 0, UTC))))
   }
 
@@ -410,10 +405,8 @@ class JsonSpec extends FlatSpec {
          |""".stripMargin,
       Dataset(
         "hello-dataset",
-        'c',
-        Json.obj(
-          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
-            "score" -> Json.obj("type" -> "number"))),
+        ClassificationType,
+        DataValidator("text" -> StringField, "score" -> NumberField),
         updatedAt = Some(new DateTime(2005, 3, 26, 12, 0, 0, 0, UTC))))
   }
 
@@ -428,10 +421,8 @@ class JsonSpec extends FlatSpec {
          |""".stripMargin,
       Dataset(
         "hello-dataset",
-        'c',
-        Json.obj(
-          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
-            "score" -> Json.obj("type" -> "number"))),
+        ClassificationType,
+        DataValidator("text" -> StringField, "score" -> NumberField),
         size = Some(100)))
   }
 
@@ -446,10 +437,8 @@ class JsonSpec extends FlatSpec {
        |""".stripMargin,
       Dataset(
         "hello-dataset",
-        'c',
-        Json.obj(
-          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
-            "score" -> Json.obj("type" -> "number"))),
+        ClassificationType,
+        DataValidator("text" -> StringField, "score" -> NumberField),
         labels = Some(Seq("big", "data"))))
   }
 
@@ -469,10 +458,8 @@ class JsonSpec extends FlatSpec {
          |""".stripMargin,
       Dataset(
         "hello-dataset",
-        'c',
-        Json.obj(
-          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
-            "score" -> Json.obj("type" -> "number"))),
+        ClassificationType,
+        DataValidator("text" -> StringField, "score" -> NumberField),
         comments = Some(ResultSet(
           Seq(Comment("john", "This is cool"), Comment("mary", "Hello world"))))))
 
@@ -482,10 +469,8 @@ class JsonSpec extends FlatSpec {
     assertReads(
       Dataset(
         "hello-dataset",
-        'c',
-        Json.obj(
-          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
-            "score" -> Json.obj("type" -> "number")))),
+        ClassificationType,
+        DataValidator("text" -> StringField, "score" -> NumberField)),
       """|{
          |  "id": "hello-dataset",
          |  "type": "classification",
@@ -498,10 +483,8 @@ class JsonSpec extends FlatSpec {
     assertReads(
       Dataset(
         "hello-dataset",
-        'c',
-        Json.obj(
-          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
-            "score" -> Json.obj("type" -> "number"))),
+        ClassificationType,
+        DataValidator("text" -> StringField, "score" -> NumberField),
         name = Some("Hello dataset")),
       """|{
          |  "id": "hello-dataset",
@@ -516,10 +499,8 @@ class JsonSpec extends FlatSpec {
     assertReads(
       Dataset(
         "hello-dataset",
-        'c',
-        Json.obj(
-          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
-            "score" -> Json.obj("type" -> "number"))),
+        ClassificationType,
+        DataValidator("text" -> StringField, "score" -> NumberField),
         createdAt = Some(new DateTime(2005, 3, 26, 12, 0, 0, 0, UTC))),
       """|{
          |  "id": "hello-dataset",
@@ -534,10 +515,8 @@ class JsonSpec extends FlatSpec {
     assertReads(
       Dataset(
         "hello-dataset",
-        'c',
-        Json.obj(
-          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
-            "score" -> Json.obj("type" -> "number"))),
+        ClassificationType,
+        DataValidator("text" -> StringField, "score" -> NumberField),
         updatedAt = Some(new DateTime(2005, 3, 26, 12, 0, 0, 0, UTC))),
       """|{
          |  "id": "hello-dataset",
@@ -552,10 +531,8 @@ class JsonSpec extends FlatSpec {
     assertReads(
       Dataset(
         "hello-dataset",
-        'c',
-        Json.obj(
-          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
-            "score" -> Json.obj("type" -> "number"))),
+        ClassificationType,
+        DataValidator("text" -> StringField, "score" -> NumberField),
         size = Some(100)),
       """|{
          |  "id": "hello-dataset",
@@ -570,10 +547,8 @@ class JsonSpec extends FlatSpec {
     assertReads(
       Dataset(
         "hello-dataset",
-        'c',
-        Json.obj(
-          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
-            "score" -> Json.obj("type" -> "number"))),
+        ClassificationType,
+        DataValidator("text" -> StringField, "score" -> NumberField),
         labels = Some(Seq("big", "data"))),
       """|{
          |  "id": "hello-dataset",
@@ -588,10 +563,8 @@ class JsonSpec extends FlatSpec {
     assertReads(
       Dataset(
         "hello-dataset",
-        'c',
-        Json.obj(
-          "properties" -> Json.obj("text" -> Json.obj("type" -> "string"),
-            "score" -> Json.obj("type" -> "number"))),
+        ClassificationType,
+        DataValidator("text" -> StringField, "score" -> NumberField),
         comments = Some(ResultSet(
           Seq(Comment("john", "This is cool"), Comment("mary", "Hello world"))))),
       """|{

@@ -187,8 +187,11 @@ object impl extends Database {
   import org.postgresql.util.PSQLException
   import org.postgresql.util.PSQLState._
   import play.api.libs.json._
+  import play.api.libs.json.Json.toJson
   import org.joda.time.DateTime
   import org.joda.time.DateTimeZone.UTC
+  import levar.json._
+  import levar.Dataset._
 
   val logger: Logger = Logger("dao.impl")
 
@@ -513,6 +516,21 @@ object impl extends Database {
       .get
   }
 
+  def datasetType(c: String) =
+    if (c == ClassificationType.code.toString)
+      ClassificationType
+    else if (c == RegressionType.code.toString)
+      RegressionType
+    else
+      throw new IllegalArgumentException(s"invalid dataset type: $c")
+
+  def datasetValidator(c: String) = {
+    Json.parse(c).asOpt[DataValidator] match {
+      case Some(v) => v
+      case None => throw new IllegalArgumentException(s"invalid format for dataset validator: ${c}")
+    }
+  }
+
   def searchDatasets(org: String, afterDate: Long = 32503680000L) = DB.readOnly { implicit session =>
     val datasets = sql"""
           select
@@ -529,8 +547,8 @@ object impl extends Database {
       .map { rs =>
         Dataset(
           rs.string("provided_id"),
-          rs.string("dataset_type")(0),
-          Json.parse(rs.string("dschema")),
+          datasetType(rs.string("dataset_type")),
+          datasetValidator(rs.string("dschema")),
           createdAt = Some(jodaFromEpoch(rs.double("created_at"))),
           updatedAt = Some(jodaFromEpoch(rs.double("updated_at"))))
       }
@@ -544,7 +562,7 @@ object impl extends Database {
   def createDataset(org: String, ds: Dataset) = DB.localTx { implicit session =>
     val newId = sql"""
           insert into dataset (org_id, provided_id, dataset_type, schema)
-          select org.org_id, ${ds.id}, ${ds.dtype}, ${ds.schema.toString}::json
+          select org.org_id, ${ds.id}, ${ds.dtype.code}, ${toJson(ds.schema).toString}::json
           from org where org.provided_id = ${org}
           returning dataset_id::text"""
       .map(_.string(1))
@@ -564,8 +582,8 @@ object impl extends Database {
           .map { rs =>
             Dataset(
               rs.string("provided_id"),
-              rs.string("dataset_type")(0),
-              Json.parse(rs.string("dschema")),
+              datasetType(rs.string("dataset_type")),
+              datasetValidator(rs.string("dschema")),
               createdAt = Some(jodaFromEpoch(rs.double("created_at"))),
               updatedAt = Some(jodaFromEpoch(rs.double("updated_at"))))
           }
@@ -592,8 +610,8 @@ object impl extends Database {
       .map { rs =>
         Dataset(
           rs.string("provided_id"),
-          rs.string("dataset_type")(0),
-          Json.parse(rs.string("dschema")),
+          datasetType(rs.string("dataset_type")),
+          datasetValidator(rs.string("dschema")),
           createdAt = Some(jodaFromEpoch(rs.double("created_at"))),
           updatedAt = Some(jodaFromEpoch(rs.double("updated_at"))))
       }
@@ -646,8 +664,8 @@ object impl extends Database {
           .map { rs =>
             Dataset(
               rs.string("provided_id"),
-              rs.string("dataset_type")(0),
-              Json.parse(rs.string("dschema")),
+              datasetType(rs.string("dataset_type")),
+              datasetValidator(rs.string("dschema")),
               createdAt = Some(jodaFromEpoch(rs.double("created_at"))),
               updatedAt = Some(jodaFromEpoch(rs.double("updated_at"))))
           }

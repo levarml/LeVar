@@ -8,10 +8,10 @@ import play.api.libs.ws._
 import scala.concurrent.ExecutionContext.Implicits.global
 import play.api.Play.current
 import play.api.libs.ws.WSAuthScheme.BASIC
-import play.api.libs.json._
 import play.api.libs.json.Json.{ obj => j, toJson }
 import levar._
 import levar.json._
+import levar.Dataset._
 
 class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
 
@@ -78,9 +78,9 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
     "send back a result if there are datasets" in {
       setupTestUser()
       db.impl.createDataset("test-org",
-        Dataset("ds1", 'c', j("properties" -> j("text" -> j("type" -> "string")))))
+        Dataset("ds1", ClassificationType, DataValidator("text" -> StringField)))
       db.impl.createDataset("test-org",
-        Dataset("ds2", 'r', j("properties" -> j("text" -> j("type" -> "string")))))
+        Dataset("ds2", RegressionType, DataValidator("text" -> StringField)))
       running(new TestServer(3333, new FakeApplication())) {
         val response = await {
           WS.url("http://localhost:3333/api/test-org/datasets")
@@ -135,7 +135,7 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
     "send back a response when there is one" in {
       setupTestUser()
       db.impl.createDataset("test-org",
-        Dataset("ds1", 'c', j("properties" -> j("text" -> j("type" -> "string")))))
+        Dataset("ds1", ClassificationType, DataValidator("text" -> StringField)))
       running(new TestServer(3333, new FakeApplication())) {
         val response = await {
           WS.url("http://localhost:3333/api/test-org/dataset/ds1")
@@ -147,8 +147,8 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
         response.json.asOpt[Dataset] match {
           case Some(ds) => {
             assert(ds.id == "ds1")
-            assert(ds.dtype == 'c')
-            assert(ds.schema == j("properties" -> j("text" -> j("type" -> "string"))))
+            assert(ds.dtype == ClassificationType)
+            assert(ds.schema == DataValidator("text" -> StringField))
             assert(ds.createdAt != None)
             assert(ds.updatedAt != None)
           }
@@ -181,7 +181,7 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
     }
 
     "put a dataset in the DB" in {
-      val ds1 = Dataset("ds1", 'c', j("properties" -> j("text" -> j("type" -> "string"))))
+      val ds1 = Dataset("ds1", ClassificationType, DataValidator("text" -> StringField))
       setupTestUser()
       running(new TestServer(3333, new FakeApplication())) {
         val response = await {
@@ -194,8 +194,8 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
         response.json.asOpt[Dataset] match {
           case Some(ds) => {
             assert(ds.id == "ds1")
-            assert(ds.dtype == 'c')
-            assert(ds.schema == j("properties" -> j("text" -> j("type" -> "string"))))
+            assert(ds.dtype == ClassificationType)
+            assert(ds.schema == DataValidator("text" -> StringField))
             assert(ds.createdAt != None)
             assert(ds.updatedAt != None)
           }
@@ -226,7 +226,6 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
             .post(ds1)
         }
         assert(response.status == 400)
-        assert(response.body.contains("invalid schema"))
       }
     }
   }
@@ -235,7 +234,7 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
     "update the ID of a dataset" in {
       setupTestUser()
       db.impl.createDataset("test-org",
-        Dataset("ds1", 'c', j("properties" -> j("text" -> j("type" -> "string")))))
+        Dataset("ds1", ClassificationType, DataValidator("text" -> StringField)))
       val u1 = Dataset.Update(id = Some("ds2"))
       Thread.sleep(100)
       running(new TestServer(3333, new FakeApplication())) {
@@ -251,8 +250,8 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
         response.json.asOpt[Dataset] match {
           case Some(ds) => {
             assert(ds.id == "ds2")
-            assert(ds.dtype == 'c')
-            assert(ds.schema == j("properties" -> j("text" -> j("type" -> "string"))))
+            assert(ds.dtype == ClassificationType)
+            assert(ds.schema == DataValidator("text" -> StringField))
             assert(ds.createdAt != None)
             assert(ds.updatedAt != None)
             assert(ds.createdAt != ds.updatedAt)
@@ -262,8 +261,8 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
       }
       val ds = db.impl.getDataset("test-org", "ds2")
       assert(ds.id == "ds2")
-      assert(ds.dtype == 'c')
-      assert(ds.schema == j("properties" -> j("text" -> j("type" -> "string"))))
+      assert(ds.dtype == ClassificationType)
+      assert(ds.schema == DataValidator("text" -> StringField))
       assert(ds.createdAt != None)
       assert(ds.updatedAt != None)
       assert(ds.createdAt != ds.updatedAt)
@@ -272,9 +271,9 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
     "send back a 400 and do no updates if the ID is taken" in {
       setupTestUser()
       db.impl.createDataset("test-org",
-        Dataset("ds1", 'c', j("properties" -> j("text" -> j("type" -> "string")))))
+        Dataset("ds1", ClassificationType, DataValidator("text" -> StringField)))
       db.impl.createDataset("test-org",
-        Dataset("ds2", 'r', j("properties" -> j("text" -> j("type" -> "string")))))
+        Dataset("ds2", RegressionType, DataValidator("text" -> StringField)))
       val u1 = Dataset.Update(id = Some("ds2"))
       running(new TestServer(3333, new FakeApplication())) {
         val response = await {
@@ -292,7 +291,7 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
     "send back a 404 if the dataset doesn't exist" in {
       setupTestUser()
       db.impl.createDataset("test-org",
-        Dataset("ds1", 'c', j("properties" -> j("text" -> j("type" -> "string")))))
+        Dataset("ds1", ClassificationType, DataValidator("text" -> StringField)))
       val u1 = Dataset.Update(id = Some("ds2"))
       Thread.sleep(100)
       running(new TestServer(3333, new FakeApplication())) {

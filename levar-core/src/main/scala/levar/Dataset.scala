@@ -1,52 +1,36 @@
 package levar
 
-import play.api.libs.json._
 import org.joda.time.DateTime
 
 object Dataset {
 
-  /** Data type for classification datasets */
-  val ClassificationType = 'c'
+  /** Marker for types of datasets */
+  sealed trait DatasetType {
+    def name: String
+    def code: Char
+  }
 
-  /** Data type for regression datasets */
-  val RegressionType = 'r'
+  /** Marker for classification datasets */
+  case object ClassificationType extends DatasetType {
+    val name = "classification"
+    val code = 'c'
+  }
 
-  val TypeName = Map(ClassificationType -> "classification", RegressionType -> "regression")
+  /** Marker for regression datasets */
+  case object RegressionType extends DatasetType {
+    val name = "regression"
+    val code = 'r'
+  }
 
+  /** Class of updates a client can make to a dataset */
   case class Update(id: Option[String] = None)
 
-  /**
-   * Validate the schema of a dataset.
-   *
-   * We're not implementing all of JSON schema here, or buying into
-   * a library which does. Just checking for the fields and values
-   * we'll need to validate data points later on.
-   */
-  def validSchema(schema: JsValue): Boolean = {
-    schema match {
-      case JsObject(fields) => {
-        fields.find(_._1 == "properties").map(_._2) match {
-          case Some(JsObject(props)) => {
-            props.nonEmpty && {
-              props.map(_._2).forall { spec =>
-                spec match {
-                  case JsObject(details) => {
-                    details.find(_._1 == "type").map(_._2) match {
-                      case Some(JsString(v)) => v == "string" || v == "number"
-                      case _ => false
-                    }
-                  }
-                  case _ => false
-                }
-              }
-            }
-          }
-          case _ => false
-        }
-      }
-      case _ => false
-    }
-  }
+  sealed trait DataFieldType
+  case object StringField extends DataFieldType
+  case object NumberField extends DataFieldType
+
+  /** Class of data validators */
+  case class DataValidator(fields: (String, DataFieldType)*)
 }
 
 /**
@@ -63,20 +47,12 @@ object Dataset {
  * @param comments comments made on the data set
  */
 case class Dataset(
-    id: String,
-    dtype: Char,
-    schema: JsValue,
-    name: Option[String] = None,
-    createdAt: Option[DateTime] = None,
-    updatedAt: Option[DateTime] = None,
-    size: Option[Int] = None,
-    labels: Option[Seq[String]] = None,
-    comments: Option[ResultSet[Comment]] = None) {
-
-  import Dataset._
-
-  require(dtype == ClassificationType || dtype == RegressionType, "invalid type")
-  require(validSchema(schema), "invalid schema")
-
-  def typeName = TypeName(dtype)
-}
+  id: String,
+  dtype: Dataset.DatasetType,
+  schema: Dataset.DataValidator,
+  name: Option[String] = None,
+  createdAt: Option[DateTime] = None,
+  updatedAt: Option[DateTime] = None,
+  size: Option[Int] = None,
+  labels: Option[Seq[String]] = None,
+  comments: Option[ResultSet[Comment]] = None)

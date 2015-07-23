@@ -3,7 +3,7 @@ package db
 import org.scalatest._
 import utils._
 import levar._
-import play.api.libs.json._
+import levar.Dataset._
 import org.joda.time._
 
 class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
@@ -397,12 +397,12 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
     db.impl.addOrg("org1", Seq("jt"))
   }
 
-  val basicSchema = Json.parse("""{"properties":{"name":{"type":"string"}}}""")
+  val basicSchema = DataValidator("name" -> StringField)
 
   "impl.createDataset" should "create a new dataset" in {
     setupOrg1()
     info("adding dataset ds1")
-    val ds = Dataset("ds1", 'c', basicSchema)
+    val ds = Dataset("ds1", ClassificationType, basicSchema)
     val fetched = db.impl.createDataset("org1", ds)
     info("checking returned dataset = ds1")
     assert(fetched.id == ds.id)
@@ -432,7 +432,7 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
   "impl.getDataset" should "return a dataset" in {
     setupOrg1()
     info("adding dataset ds1")
-    val ds = Dataset("ds1", 'c', basicSchema)
+    val ds = Dataset("ds1", ClassificationType, basicSchema)
     val fetchedOnCreate = db.impl.createDataset("org1", ds)
     val fetchedOnAsk = db.impl.getDataset("org1", ds.id)
     assert(fetchedOnCreate == fetchedOnAsk)
