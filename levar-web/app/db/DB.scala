@@ -193,7 +193,7 @@ object impl extends Database {
   import levar.json._
   import levar.Dataset._
 
-  val logger: Logger = Logger("dao.impl")
+  val logger: Logger = Logger("db.impl")
 
   private def sqlFromClasspath(path: String) = {
     SQL(io.Source.fromInputStream(getClass.getResourceAsStream(path)).mkString)
@@ -216,6 +216,8 @@ object impl extends Database {
     }
     ConnectionPool.singleton(dbUrl, username, password)
   }
+
+  GlobalSettings.loggingSQLErrors = conf.getBoolean("db.log_errors")
 
   /** Set up the database */
   def setUp() {
