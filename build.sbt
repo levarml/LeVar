@@ -18,11 +18,14 @@ lazy val commonSettings = Seq(
   libraryDependencies ++= Seq(
     "org.scalatest" %% "scalatest" % "2.2.5" % "test"
   ),
+  buildInfoKeys := Seq[BuildInfoKey](version),
+  buildInfoPackage := "levar.build",
   fork := true
 ) ++ scalariformSettings
 
 lazy val core = project
   .in(file("levar-core"))
+  .enablePlugins(BuildInfoPlugin)
   .settings(commonSettings: _*)
 
 lazy val web = project
@@ -31,15 +34,20 @@ lazy val web = project
   .enablePlugins(PlayScala)
   .dependsOn(core)
 
+lazy val client = project
+  .in(file("levar-client"))
+  .settings(commonSettings: _*)
+  .dependsOn(core)
+
 lazy val cli = project
   .in(file("levar-cli"))
   .settings(commonSettings: _*)
-  .dependsOn(core)
+  .dependsOn(client)
 
 lazy val root = project
   .in(file("."))
   .settings(commonSettings: _*)
-  .aggregate(core, web, cli)
+  .aggregate(core, web, client, cli)
 
 fork := true
 
