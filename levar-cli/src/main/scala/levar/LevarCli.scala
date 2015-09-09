@@ -8,7 +8,7 @@ import levar.util._
 import scala.io.StdIn.readLine
 
 /** CLI runner class */
-object Levar {
+object LevarCli {
 
   def main(argv: Array[String]) {
 
