@@ -1,14 +1,20 @@
 package levar
 
 import org.rogach.scallop._
+import org.rogach.scallop.exceptions._
+import org.joda.time.format.DateTimeFormat
 import com.typesafe.config.ConfigFactory
 import levar.client._
 import levar.io._
 import levar.util._
 import scala.io.StdIn.readLine
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 /** CLI runner class */
 object LevarCli {
+
+  implicit val context = play.api.libs.concurrent.Execution.Implicits.defaultContext
 
   def main(argv: Array[String]) {
 
@@ -18,11 +24,14 @@ object LevarCli {
     /// CLI args
     val args = new ScallopConf(argv) {
 
-      val version = toggle(
-        "version",
-        short = 'V',
-        descrYes = "Show version details",
-        default = Some(false))
+      version(s"LeVar CLI (client v${levar.build.BuildInfo.version})")
+
+      banner("""
+         |Command-line interface to a LeVar evaluation dataset service
+         |
+         |Usage: levar-cli [Options] [Subcommmand] [Subcommand params]
+         |
+         |Options:""".stripMargin)
 
       val configCmd = new Subcommand("config") {
         val url = opt[String](
@@ -43,11 +52,10 @@ object LevarCli {
           descr = "Your default organization"
         )
       }
-    }
 
-    for (v <- args.version if v) {
-      println(levar.build.BuildInfo.version)
-      sys.exit(0)
+      val datasetsCmd = new Subcommand("datasets") {
+        val org = trailArg[String](required = false, descr = "Your organization")
+      }
     }
 
     args.subcommand match {
@@ -181,7 +189,50 @@ object LevarCli {
         }
       }
 
-      case _ =>
+      case Some(args.datasetsCmd) => {
+        try {
+          val client = ClientConfigIo.loadClient
+          val org = args.datasetsCmd.org.get.getOrElse(client.config.org)
+          val datasetRS = Await.result(client.searchDatasets(org), 10 seconds)
+          if (datasetRS.nonEmpty) {
+            println(s"Datasets for $org")
+            println(
+              """|Dataset                    | Updated    | Type       |    Items
+                 |---------------------------|------------|------------|----------""".stripMargin)
+            for (dataset <- datasetRS) {
+              val displayName = if (dataset.id.size > 26) {
+                dataset.id.take(23) + "..."
+              } else {
+                dataset.id + (" " * (26 - dataset.id.size))
+              }
+              val date = dataset.updatedAt match {
+                case Some(d) => DateTimeFormat.forPattern("yyyy-MM-dd").print(d)
+                case None => " " * 10
+              }
+              val dtype = {
+                val t = dataset.dtype match {
+                  case Dataset.ClassificationType => "classify"
+                  case Dataset.RegressionType => "regression"
+                }
+                t + (" " * (10 - t.size))
+              }
+              val n = dataset.size.getOrElse(0)
+              println(f"$displayName | $date | $dtype | $n%8d")
+            }
+          } else {
+            println(s"No datasets for $org")
+          }
+        } catch {
+          case _: MissingClientConfig => {
+            Console.err.println("Missing cofig -- run `levar config` to set up")
+            sys.exit(1)
+          }
+        }
+      }
+
+      case _ => println("You did not supply an argument -- try 'levar-cli datasets'")
     }
+
+    sys.exit
   }
 }

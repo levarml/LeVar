@@ -13,22 +13,7 @@ case class ResultSet[A](
     items: Seq[A],
     path: Option[String] = None,
     total: Option[Int] = None,
-    nextPath: Option[String] = None) {
+    nextPath: Option[String] = None) extends Traversable[A] {
 
-  override def toString(): String = {
-    val buf = collection.mutable.StringBuilder.newBuilder
-    for (p <- path)
-      buf ++= p ++= "\n"
-    buf ++= "Results:\n"
-    for (item <- items) {
-      buf ++= item.toString
-    }
-    for (t <- total) {
-      buf ++= s"Total: $t\n"
-    }
-    for (n <- nextPath) {
-      buf ++= "Next results: $n\n"
-    }
-    buf.toString
-  }
+  def foreach[U](f: A => U) { items.foreach(f) }
 }

@@ -1,6 +1,6 @@
 package levar.io
 
-import levar.client.ClientConfig
+import levar.client._
 import com.typesafe.config.ConfigFactory
 import java.io._
 import scala.io.Source
@@ -17,6 +17,11 @@ object ClientConfigIo {
     and (__ \ "url").format[String]
     and (__ \ "org").format[String]
   )(ClientConfig.apply, unlift(ClientConfig.unapply))
+
+  def loadClient: LevarClient = loadClientConfig match {
+    case Some(config) => new LevarClient(config)
+    case None => throw new MissingClientConfig
+  }
 
   def loadClientConfig: Option[ClientConfig] = {
     val settingsDir = config.getString("levar.settings_dir")
