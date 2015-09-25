@@ -353,13 +353,13 @@ class JsonSpec extends FlatSpec {
       """|{
          |  "id": "hello-dataset",
          |  "type": "classification",
-         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}}
+         |  "schema": {"properties": {"text": {"type": "string"}, "num-words": {"type": "number"}}}
          |}
          |""".stripMargin,
       Dataset(
         "hello-dataset",
         ClassificationType,
-        DataValidator("text" -> StringField, "score" -> NumberField)))
+        DataValidator("text" -> StringField, "num-words" -> NumberField)))
   }
 
   it should "handle name" in {
@@ -367,14 +367,14 @@ class JsonSpec extends FlatSpec {
       """|{
          |  "id": "hello-dataset",
          |  "type": "classification",
-         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
+         |  "schema": {"properties": {"text": {"type": "string"}, "num-words": {"type": "number"}}},
          |  "name": "Hello dataset"
          |}
          |""".stripMargin,
       Dataset(
         "hello-dataset",
         ClassificationType,
-        DataValidator("text" -> StringField, "score" -> NumberField),
+        DataValidator("text" -> StringField, "num-words" -> NumberField),
         name = Some("Hello dataset")))
   }
 
@@ -383,14 +383,14 @@ class JsonSpec extends FlatSpec {
       """|{
          |  "id": "hello-dataset",
          |  "type": "classification",
-         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
+         |  "schema": {"properties": {"text": {"type": "string"}, "num-words": {"type": "number"}}},
          |  "created_at": "2005-03-26T12:00:00.000Z"
          |}
          |""".stripMargin,
       Dataset(
         "hello-dataset",
         ClassificationType,
-        DataValidator("text" -> StringField, "score" -> NumberField),
+        DataValidator("text" -> StringField, "num-words" -> NumberField),
         createdAt = Some(new DateTime(2005, 3, 26, 12, 0, 0, 0, UTC))))
   }
 
@@ -399,14 +399,14 @@ class JsonSpec extends FlatSpec {
       """|{
          |  "id": "hello-dataset",
          |  "type": "classification",
-         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
+         |  "schema": {"properties": {"text": {"type": "string"}, "num-words": {"type": "number"}}},
          |  "updated_at": "2005-03-26T12:00:00.000Z"
          |}
          |""".stripMargin,
       Dataset(
         "hello-dataset",
         ClassificationType,
-        DataValidator("text" -> StringField, "score" -> NumberField),
+        DataValidator("text" -> StringField, "num-words" -> NumberField),
         updatedAt = Some(new DateTime(2005, 3, 26, 12, 0, 0, 0, UTC))))
   }
 
@@ -415,14 +415,14 @@ class JsonSpec extends FlatSpec {
       """|{
          |  "id": "hello-dataset",
          |  "type": "classification",
-         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
+         |  "schema": {"properties": {"text": {"type": "string"}, "num-words": {"type": "number"}}},
          |  "size": 100
          |}
          |""".stripMargin,
       Dataset(
         "hello-dataset",
         ClassificationType,
-        DataValidator("text" -> StringField, "score" -> NumberField),
+        DataValidator("text" -> StringField, "num-words" -> NumberField),
         size = Some(100)))
   }
 
@@ -431,14 +431,14 @@ class JsonSpec extends FlatSpec {
       """|{
        |  "id": "hello-dataset",
        |  "type": "classification",
-       |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
+       |  "schema": {"properties": {"text": {"type": "string"}, "num-words": {"type": "number"}}},
        |  "labels": ["big", "data"]
        |}
        |""".stripMargin,
       Dataset(
         "hello-dataset",
         ClassificationType,
-        DataValidator("text" -> StringField, "score" -> NumberField),
+        DataValidator("text" -> StringField, "num-words" -> NumberField),
         labels = Some(Seq("big", "data"))))
   }
 
@@ -447,7 +447,7 @@ class JsonSpec extends FlatSpec {
       """|{
          |  "id": "hello-dataset",
          |  "type": "classification",
-         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
+         |  "schema": {"properties": {"text": {"type": "string"}, "num-words": {"type": "number"}}},
          |  "comments": {
          |    "items": [
          |      {"username": "john", "comment": "This is cool"},
@@ -459,7 +459,7 @@ class JsonSpec extends FlatSpec {
       Dataset(
         "hello-dataset",
         ClassificationType,
-        DataValidator("text" -> StringField, "score" -> NumberField),
+        DataValidator("text" -> StringField, "num-words" -> NumberField),
         comments = Some(ResultSet(
           Seq(Comment("john", "This is cool"), Comment("mary", "Hello world"))))))
 
@@ -470,11 +470,11 @@ class JsonSpec extends FlatSpec {
       Dataset(
         "hello-dataset",
         ClassificationType,
-        DataValidator("text" -> StringField, "score" -> NumberField)),
+        DataValidator("text" -> StringField, "num-words" -> NumberField)),
       """|{
          |  "id": "hello-dataset",
          |  "type": "classification",
-         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}}
+         |  "schema": {"properties": {"text": {"type": "string"}, "num-words": {"type": "number"}}}
          |}
          |""".stripMargin)
   }
@@ -484,12 +484,12 @@ class JsonSpec extends FlatSpec {
       Dataset(
         "hello-dataset",
         ClassificationType,
-        DataValidator("text" -> StringField, "score" -> NumberField),
+        DataValidator("text" -> StringField, "num-words" -> NumberField),
         name = Some("Hello dataset")),
       """|{
          |  "id": "hello-dataset",
          |  "type": "classification",
-         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
+         |  "schema": {"properties": {"text": {"type": "string"}, "num-words": {"type": "number"}}},
          |  "name": "Hello dataset"
          |}
          |""".stripMargin)
@@ -500,12 +500,12 @@ class JsonSpec extends FlatSpec {
       Dataset(
         "hello-dataset",
         ClassificationType,
-        DataValidator("text" -> StringField, "score" -> NumberField),
+        DataValidator("text" -> StringField, "num-words" -> NumberField),
         createdAt = Some(new DateTime(2005, 3, 26, 12, 0, 0, 0, UTC))),
       """|{
          |  "id": "hello-dataset",
          |  "type": "classification",
-         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
+         |  "schema": {"properties": {"text": {"type": "string"}, "num-words": {"type": "number"}}},
          |  "created_at": "2005-03-26T12:00:00.000Z"
          |}
          |""".stripMargin)
@@ -516,12 +516,12 @@ class JsonSpec extends FlatSpec {
       Dataset(
         "hello-dataset",
         ClassificationType,
-        DataValidator("text" -> StringField, "score" -> NumberField),
+        DataValidator("text" -> StringField, "num-words" -> NumberField),
         updatedAt = Some(new DateTime(2005, 3, 26, 12, 0, 0, 0, UTC))),
       """|{
          |  "id": "hello-dataset",
          |  "type": "classification",
-         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
+         |  "schema": {"properties": {"text": {"type": "string"}, "num-words": {"type": "number"}}},
          |  "updated_at": "2005-03-26T12:00:00.000Z"
          |}
          |""".stripMargin)
@@ -532,12 +532,12 @@ class JsonSpec extends FlatSpec {
       Dataset(
         "hello-dataset",
         ClassificationType,
-        DataValidator("text" -> StringField, "score" -> NumberField),
+        DataValidator("text" -> StringField, "num-words" -> NumberField),
         size = Some(100)),
       """|{
          |  "id": "hello-dataset",
          |  "type": "classification",
-         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
+         |  "schema": {"properties": {"text": {"type": "string"}, "num-words": {"type": "number"}}},
          |  "size": 100
          |}
          |""".stripMargin)
@@ -548,12 +548,12 @@ class JsonSpec extends FlatSpec {
       Dataset(
         "hello-dataset",
         ClassificationType,
-        DataValidator("text" -> StringField, "score" -> NumberField),
+        DataValidator("text" -> StringField, "num-words" -> NumberField),
         labels = Some(Seq("big", "data"))),
       """|{
          |  "id": "hello-dataset",
          |  "type": "classification",
-         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
+         |  "schema": {"properties": {"text": {"type": "string"}, "num-words": {"type": "number"}}},
          |  "labels": ["big", "data"]
          |}
          |""".stripMargin)
@@ -564,13 +564,13 @@ class JsonSpec extends FlatSpec {
       Dataset(
         "hello-dataset",
         ClassificationType,
-        DataValidator("text" -> StringField, "score" -> NumberField),
+        DataValidator("text" -> StringField, "num-words" -> NumberField),
         comments = Some(ResultSet(
           Seq(Comment("john", "This is cool"), Comment("mary", "Hello world"))))),
       """|{
          |  "id": "hello-dataset",
          |  "type": "classification",
-         |  "schema": {"properties": {"text": {"type": "string"}, "score": {"type": "number"}}},
+         |  "schema": {"properties": {"text": {"type": "string"}, "num-words": {"type": "number"}}},
          |  "comments": {
          |    "items": [
          |      {"username": "john", "comment": "This is cool"},

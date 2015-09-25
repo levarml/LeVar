@@ -117,6 +117,16 @@ package object json {
     }
   }
 
+  implicit lazy val RegressionSummaryStats: Format[Dataset.RegressionSummaryStats] = (
+    (__ \ "min").format[Double] and
+    (__ \ "max").format[Double] and
+    (__ \ "mean").format[Double] and
+    (__ \ "stddev").format[Double] and
+    (__ \ "median").format[Double] and
+    (__ \ "percentile_10").format[Double] and
+    (__ \ "percentile_90").format[Double]
+  )(Dataset.RegressionSummaryStats.apply _, unlift(Dataset.RegressionSummaryStats.unapply))
+
   implicit lazy val DatasetFormat: Format[Dataset] = (
     (__ \ "id").format[String] and
     (__ \ "type").format[DatasetType] and
@@ -125,12 +135,17 @@ package object json {
     (__ \ "created_at").formatNullable[DateTime] and
     (__ \ "updated_at").formatNullable[DateTime] and
     (__ \ "size").formatNullable[Int] and
+    (__ \ "classes").formatNullable[Set[String]] and
+    (__ \ "class_counts").formatNullable[Map[String, Int]] and
+    (__ \ "summary_stats").formatNullable[Dataset.RegressionSummaryStats] and
     (__ \ "labels").formatNullable[Seq[String]] and
     (__ \ "comments").formatNullable[ResultSet[Comment]]
   )(Dataset.apply _, unlift(Dataset.unapply))
 
   implicit lazy val DatasetUpdateFormat: Format[Update] = (
-    (__ \ "id").formatNullable[String].inmap(Update.apply _, unlift(Update.unapply)))
+    (__ \ "id").formatNullable[String] and
+    (__ \ "data").formatNullable[Seq[Datum]]
+  )(Update.apply _, unlift(Update.unapply))
 
   implicit lazy val ExperimentFormat: Format[Experiment] = (
     (__ \ "id").format[String] and

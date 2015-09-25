@@ -1,6 +1,7 @@
 package db
 
 import levar._
+import utils._
 
 class CannotCreateOrganizationException(msg: String) extends Exception(msg)
 class OrganizationNotFoundException(msg: String) extends Exception(msg)
@@ -149,7 +150,7 @@ trait Database {
    * @param ds the dataset to be added to the DB
    * @return the same dataset with optionally some more metadata
    */
-  def createDataset(org: String, ds: Dataset): Dataset
+  def createDataset(org: String, ds: Dataset)
 
   /**
    * Look up a dataset in the DB
@@ -170,13 +171,13 @@ trait Database {
    * @param updates the changes to make to the dataset
    * @return the upddated dataset
    */
-  def updateDataset(org: String, id: String, updates: Dataset.Update): Dataset
+  def updateDataset(org: String, id: String, updates: Dataset.Update)
 }
 
 /**
  * Default/production implementation of [[Database]]
  */
-object impl extends Database {
+object impl extends Database with JsonLogging {
   import com.typesafe.config.ConfigFactory
   import java.net.URI
   import scalikejdbc._
@@ -192,8 +193,6 @@ object impl extends Database {
   import org.joda.time.DateTimeZone.UTC
   import levar.json._
   import levar.Dataset._
-
-  val logger: Logger = Logger("db.impl")
 
   private def sqlFromClasspath(path: String) = {
     SQL(io.Source.fromInputStream(getClass.getResourceAsStream(path)).mkString)
@@ -221,20 +220,20 @@ object impl extends Database {
 
   /** Set up the database */
   def setUp() {
-    logger.info("setting up DB")
+    info("status" -> "startin", "action" -> "setup_db")
     DB.localTx { implicit session =>
       sqlFromClasspath("/setup.sql").execute.apply()
     }
-    logger.info("setting up DB done")
+    info("status" -> "done", "action" -> "setup_db")
   }
 
   /** Tear down the database */
   def tearDown() {
-    logger.info("tearing down DB")
+    info("status" -> "starting", "action" -> "tear_down_db")
     DB.localTx { implicit session =>
       sqlFromClasspath("/teardown.sql").execute.apply()
     }
-    logger.info("tearing down DB done")
+    info("tearing down DB done")
   }
 
   /**
@@ -275,7 +274,7 @@ object impl extends Database {
 
   def addAuth(user: String, pass: String) {
     validateIdentifier(user)
-    logger.info(s"adding user $user")
+    info(s"adding user $user")
     val uuidOpt = try {
       DB.localTx { implicit session =>
         sql"""insert into auth (username, password) values ($user, crypt($pass, gen_salt('md5')))
@@ -291,7 +290,7 @@ object impl extends Database {
     }
     uuidOpt match {
       case Some(uuid) => {
-        logger.info(s"created new analysis $uuid")
+        info(s"created new analysis $uuid")
       }
       case None => {
         throw new CannotCreateUserException(user)
@@ -300,7 +299,7 @@ object impl extends Database {
   }
 
   def delAuth(user: String) {
-    logger.info(s"deleting user $user")
+    info(s"deleting user $user")
     val deletedUsers = DB.localTx { implicit session =>
       sql"delete from auth where username = $user returning username"
         .map(_.string("username"))
@@ -315,7 +314,7 @@ object impl extends Database {
   }
 
   def renameAuth(current: String, next: String) {
-    logger.info(s"renaming user $current to $next")
+    info(s"renaming user $current to $next")
     val updatedUsers = DB.localTx { implicit session =>
       sql"""update auth
             set username = $next, updated_at = current_timestamp
@@ -333,7 +332,7 @@ object impl extends Database {
   }
 
   def resetPassword(user: String, currentPass: String, nextPass: String) {
-    logger.info(s"resetting password for $user with credentials")
+    info(s"resetting password for $user with credentials")
     val updatedUsers = DB.localTx { implicit setssion =>
       sql"""update auth
             set password = crypt($nextPass, gen_salt('md5')), updated_at = current_timestamp
@@ -353,7 +352,7 @@ object impl extends Database {
 
   def addOrg(id: String) {
     validateIdentifier(id)
-    logger.info(s"creating new organization $id")
+    info(s"creating new organization $id")
     val newIds = try {
       DB.localTx { implicit session =>
         sql"insert into org (provided_id) values ($id) returning provided_id"
@@ -485,7 +484,7 @@ object impl extends Database {
 
   def renameOrg(current: String, next: String) {
     validateIdentifier(next)
-    logger.info(s"renaming organization $current to $next")
+    info(s"renaming organization $current to $next")
     val updatedOrgs = DB.localTx { implicit session =>
       sql"""update org
             set provided_id = $next, updated_at = current_timestamp
@@ -502,7 +501,7 @@ object impl extends Database {
       val msg = s"unexpected orgs updated matching $current: ${updatedOrgs.mkString(", ")}"
       throw new UnexpectedResultException(msg)
     } else {
-      logger.info(s"renamed org $current to $next")
+      info(s"renamed org $current to $next")
     }
   }
 
@@ -536,23 +535,27 @@ object impl extends Database {
   def searchDatasets(org: String, afterDate: Long = 32503680000L) = DB.readOnly { implicit session =>
     val datasets = sql"""
           select
-          dataset.provided_id provided_id,
+          dataset.provided_id dataset_ident,
           dataset.dataset_type::text dataset_type,
           dataset.schema::text dschema,
-          extract(epoch from dataset.created_at) created_at,
-          extract(epoch from dataset.updated_at) updated_at
+          extract(epoch from dataset.created_at) d_created_at,
+          extract(epoch from dataset.updated_at) d_updated_at,
+          count(datum.datum_id) size
           from dataset inner join org on dataset.org_id = org.org_id
+                       left join datum on dataset.dataset_id = datum.dataset_id
           where org.provided_id = ${org}
           and dataset.created_at < timestamp with time zone 'epoch' + ${afterDate} * interval '1 second'
-          order by dataset.created_at
+          group by dataset_ident, dataset_type, dschema, d_created_at, d_updated_at
+          order by d_created_at
           limit 100"""
       .map { rs =>
         Dataset(
-          rs.string("provided_id"),
+          rs.string("dataset_ident"),
           datasetType(rs.string("dataset_type")),
           datasetValidator(rs.string("dschema")),
-          createdAt = Some(jodaFromEpoch(rs.double("created_at"))),
-          updatedAt = Some(jodaFromEpoch(rs.double("updated_at"))))
+          createdAt = Some(jodaFromEpoch(rs.double("d_created_at"))),
+          updatedAt = Some(jodaFromEpoch(rs.double("d_updated_at"))),
+          size = Some(rs.int("size")))
       }
       .list
       .apply()
@@ -561,122 +564,168 @@ object impl extends Database {
 
   private def jodaFromEpoch(epoch: Double) = new DateTime((1000 * epoch).toLong).withZone(UTC)
 
+  private val datasetDupeKeyMsgSnippet =
+    """duplicate key value violates unique constraint "dataset_org_id_provided_id_key""""
+
   def createDataset(org: String, ds: Dataset) = DB.localTx { implicit session =>
-    val newId = sql"""
-          insert into dataset (org_id, provided_id, dataset_type, schema)
-          select org.org_id, ${ds.id}, ${ds.dtype.code}, ${toJson(ds.schema).toString}::json
-          from org where org.provided_id = ${org}
-          returning dataset_id::text"""
-      .map(_.string(1))
-      .single
-      .apply()
-    newId match {
-      case Some(uuid) => {
-        sql"""
-          select
-          dataset.provided_id,
-          dataset.dataset_type::text,
-          dataset.schema dschema,
-          extract(epoch from created_at) created_at,
-          extract(epoch from updated_at) updated_at
-          from dataset
-          where dataset_id = ${uuid}::uuid"""
-          .map { rs =>
-            Dataset(
-              rs.string("provided_id"),
-              datasetType(rs.string("dataset_type")),
-              datasetValidator(rs.string("dschema")),
-              createdAt = Some(jodaFromEpoch(rs.double("created_at"))),
-              updatedAt = Some(jodaFromEpoch(rs.double("updated_at"))))
-          }
-          .single
-          .apply()
-          .get
-      }
-
-      case None => throw new OrganizationNotFoundException(org)
-
+    try {
+      sql"""
+        insert into dataset (org_id, provided_id, dataset_type, schema)
+        select org.org_id, ${ds.id}, ${ds.dtype.code}, ${toJson(ds.schema).toString}::json
+        from org where org.provided_id = ${org}"""
+        .execute
+        .apply()
+    } catch {
+      case e: PSQLException if e.getMessage.contains(datasetDupeKeyMsgSnippet) =>
+        throw new DatasetIdAlreadyExists(s"$org/${ds.id}")
     }
   }
 
   def getDataset(org: String, id: String): Dataset = DB.readOnly { implicit session =>
     val dsOpt = sql"""
       select
-      dataset.provided_id,
-      dataset.dataset_type::text,
-      dataset.schema dschema,
-      extract(epoch from dataset.created_at) created_at,
-      extract(epoch from dataset.updated_at) updated_at
+      dataset.dataset_id::text dsid,
+      dataset.provided_id ds_ident,
+      dataset.dataset_type::text dataset_type,
+      dataset.schema::text dschema,
+      extract(epoch from dataset.created_at) d_created_at,
+      extract(epoch from dataset.updated_at) d_updated_at,
+      count(datum.datum_id) as size
       from dataset inner join org on dataset.org_id = org.org_id
-      where dataset.provided_id = ${id}"""
+                   left join datum on dataset.dataset_id = datum.dataset_id
+      where dataset.provided_id = ${id}
+      group by dsid, ds_ident, dataset_type, dschema, d_created_at, d_updated_at"""
       .map { rs =>
-        Dataset(
-          rs.string("provided_id"),
+        val ds = Dataset(
+          rs.string("ds_ident"),
           datasetType(rs.string("dataset_type")),
           datasetValidator(rs.string("dschema")),
-          createdAt = Some(jodaFromEpoch(rs.double("created_at"))),
-          updatedAt = Some(jodaFromEpoch(rs.double("updated_at"))))
+          createdAt = Some(jodaFromEpoch(rs.double("d_created_at"))),
+          updatedAt = Some(jodaFromEpoch(rs.double("d_updated_at"))),
+          size = Some(rs.int("size")))
+        (rs.string("dsid"), ds)
       }
       .single
       .apply()
 
     dsOpt match {
-      case Some(ds) => ds
+      case Some((dsid, ds)) => {
+        val classCountsList = sql"""
+          select datum.cvalue cls, count(1) count from datum
+          where datum.dataset_id = ${dsid}::uuid and datum.cvalue is not null
+          group by cls"""
+          .map { rs => (rs.string("cls"), rs.int("count")) }
+          .list
+          .apply()
+
+        val summaryStats = sql"""
+          select min, max, mean, stddev, p[1] median, p[2] p10, p[3] p90 from (
+            select
+              min(rvalue),
+              max(rvalue),
+              avg(rvalue) mean,
+              stddev(rvalue),
+              (percentile_disc(array[.5, .1, .9]) within group (order by rvalue)) p
+            from datum
+            where dataset_id = ${dsid}::uuid and rvalue is not null) q1"""
+          .map { rs =>
+            Dataset.RegressionSummaryStats(
+              rs.double("min"),
+              rs.double("max"),
+              rs.double("mean"),
+              rs.double("stddev"),
+              rs.double("median"),
+              rs.double("p10"),
+              rs.double("p90"))
+          }
+          .single
+          .apply()
+
+        if (classCountsList.nonEmpty) {
+          ds.copy(classCounts = Some(classCountsList.toMap))
+        } else if (summaryStats.nonEmpty) {
+          ds.copy(summaryStats = Some(summaryStats.get))
+        } else {
+          ds
+        }
+      }
       case None => throw new NotFoundInDb()
     }
   }
 
-  def updateDataset(org: String, id: String, updates: Dataset.Update) = DB.localTx { implicit session =>
-    val idOpt = sql"""
-      select dataset.dataset_id::text dataset_id
-      from dataset inner join org on dataset.org_id = org.org_id
-      where org.provided_id = ${org} and dataset.provided_id = ${id}
-      """
-      .map(_.string("dataset_id"))
-      .single
-      .apply()
+  private def hex2int(hex: String): Int = {
+    java.lang.Long.parseLong(hex, 16).toInt
+  }
 
-    idOpt match {
-      case Some(uuid) => {
-        updates.id foreach { newProvidedId =>
-          try {
-            sql"""
-            update dataset set
-              provided_id = ${newProvidedId},
-              updated_at = current_timestamp
-            where dataset_id = ${uuid}::uuid
-            """
-              .execute
-              .apply()
-          } catch {
-            case e: PSQLException if e.getMessage.contains("duplicate key value violates unique constraint") => {
-              throw new DatasetIdAlreadyExists(newProvidedId)
+  def updateDataset(org: String, id: String, updates: Dataset.Update) = DB.localTx { implicit session =>
+    try {
+      info(s"processing update for $org/$id")
+      val idOpt = sql"""
+        select dataset.dataset_id::text dataset_id, dataset.dataset_type::text dataset_type
+        from dataset inner join org on dataset.org_id = org.org_id
+        where org.provided_id = ${org} and dataset.provided_id = ${id}
+        """
+        .map(row => (row.string("dataset_id"), row.string("dataset_type")))
+        .single
+        .apply()
+
+      idOpt match {
+        case Some((uuid, dtypeStr)) => {
+          val dtype = datasetType(dtypeStr)
+          updates.id foreach { newProvidedId =>
+            try {
+              sql"""
+                update dataset set
+                  provided_id = ${newProvidedId},
+                  updated_at = current_timestamp
+                where dataset_id = ${uuid}::uuid
+                """
+                .execute
+                .apply()
+            } catch {
+              case e: PSQLException if e.getMessage.contains("duplicate key value violates unique constraint") => {
+                throw new DatasetIdAlreadyExists(newProvidedId)
+              }
+            }
+          }
+          updates.data foreach { dataBlock =>
+            val newData: Seq[(String, Any)] = for {
+              datum <- dataBlock
+              value <- datum.valueAsAny
+            } yield (datum.data.toString, value)
+            info(s"data to append ${newData.size}")
+
+            val newIds: Seq[(UUID, String)] = genUuids(newData.size)
+            val batchInserts: Seq[Seq[Any]] = for {
+              ((datumId, datumIdShort), (data, value)) <- (newIds zip newData)
+            } yield {
+              Seq(datumId.toString, hex2int(datumIdShort), data, value, uuid)
+            }
+            dtype match {
+              case Dataset.ClassificationType => {
+                sql"""
+                  insert into datum (datum_id, ident, data, cvalue, dataset_id)
+                  values (?::uuid, ?, ?::json, ?, ?::uuid)
+                  """
+                  .batch(batchInserts: _*)
+                  .apply()
+              }
+              case Dataset.RegressionType => {
+                info(s"regression inserts ${batchInserts.size}")
+                sql"""
+                  insert into datum (datum_id, ident, data, rvalue, dataset_id)
+                  values (?::uuid, ?, ?::json, ?, ?::uuid)
+                  """
+                  .batch(batchInserts: _*)
+                  .apply()
+              }
             }
           }
         }
-        sql"""
-          select
-          dataset.provided_id,
-          dataset.dataset_type::text,
-          dataset.schema dschema,
-          extract(epoch from created_at) created_at,
-          extract(epoch from updated_at) updated_at
-          from dataset
-          where dataset_id = ${uuid}::uuid"""
-          .map { rs =>
-            Dataset(
-              rs.string("provided_id"),
-              datasetType(rs.string("dataset_type")),
-              datasetValidator(rs.string("dschema")),
-              createdAt = Some(jodaFromEpoch(rs.double("created_at"))),
-              updatedAt = Some(jodaFromEpoch(rs.double("updated_at"))))
-          }
-          .single
-          .apply()
-          .get
-
+        case None => throw new NotFoundInDb()
       }
-      case None => throw new NotFoundInDb()
+    } catch {
+      case e: java.sql.BatchUpdateException => throw e.getNextException
     }
   }
 }

@@ -14,9 +14,15 @@ import org.joda.time.DateTime
  * @param comments comments made on the data item
  */
 case class Datum(
-  data: JsValue,
-  value: Option[Either[Double, String]] = None,
-  id: Option[String] = None,
-  createdAt: Option[DateTime] = None,
-  labels: Option[Seq[String]] = None,
-  comments: Option[ResultSet[Comment]] = None)
+    data: JsValue,
+    value: Option[Either[Double, String]] = None,
+    id: Option[String] = None,
+    createdAt: Option[DateTime] = None,
+    labels: Option[Seq[String]] = None,
+    comments: Option[ResultSet[Comment]] = None) {
+
+  def valueAsAny: Option[Any] = for (v <- value) yield v match {
+    case Left(x) => x
+    case Right(x) => x
+  }
+}

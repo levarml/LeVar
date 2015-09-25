@@ -23,14 +23,27 @@ object Dataset {
   }
 
   /** Class of updates a client can make to a dataset */
-  case class Update(id: Option[String] = None)
+  case class Update(
+    id: Option[String] = None,
+    data: Option[Seq[Datum]] = None)
 
-  sealed trait DataFieldType
-  case object StringField extends DataFieldType
-  case object NumberField extends DataFieldType
+  sealed trait DataFieldType {
+    def name: String
+  }
+  case object StringField extends DataFieldType { val name = "text" }
+  case object NumberField extends DataFieldType { val name = "numeric" }
 
   /** Class of data validators */
   case class DataValidator(fields: (String, DataFieldType)*)
+
+  case class RegressionSummaryStats(
+    minVal: Double,
+    maxVal: Double,
+    mean: Double,
+    stddev: Double,
+    median: Double,
+    p10: Double,
+    p90: Double)
 }
 
 /**
@@ -43,6 +56,9 @@ object Dataset {
  * @param createdAt date the dataset was created in the DB
  * @param updatedAt date the dataset was updated last in the DB
  * @param size number of items [[Datum]]s in the dataset
+ * @param classes the classes (for a classification dataset)
+ * @param classCounts the classes and counts of the classes (for a classification dataset)
+ * @param summaryStats summary statistics for
  * @param labels labels applied to the data set
  * @param comments comments made on the data set
  */
@@ -54,5 +70,8 @@ case class Dataset(
   createdAt: Option[DateTime] = None,
   updatedAt: Option[DateTime] = None,
   size: Option[Int] = None,
+  classes: Option[Set[String]] = None,
+  classCounts: Option[Map[String, Int]] = None,
+  summaryStats: Option[Dataset.RegressionSummaryStats] = None,
   labels: Option[Seq[String]] = None,
   comments: Option[ResultSet[Comment]] = None)

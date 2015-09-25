@@ -1,3 +1,3 @@
 name := "levar-client"
 
-libraryDependencies += ws
+libraryDependencies ++= Seq(ws)
