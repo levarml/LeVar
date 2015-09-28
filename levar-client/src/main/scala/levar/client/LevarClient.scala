@@ -10,7 +10,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration.Duration.Inf
 import org.joda.time.DateTime
 
-class LevarClient(val config: ClientConfig) {
+object LevarClient {
 
   val knownHttpErrs = Map(
     400 -> "Bad Request",
@@ -72,6 +72,11 @@ class LevarClient(val config: ClientConfig) {
     522 -> "Origin Connection Time-out",
     598 -> "Network read timeout error",
     599 -> "Network connect timeout error")
+}
+
+class LevarClient(val config: ClientConfig) {
+
+  import LevarClient.knownHttpErrs
 
   implicit val context = play.api.libs.concurrent.Execution.Implicits.defaultContext
 
@@ -83,6 +88,23 @@ class LevarClient(val config: ClientConfig) {
       .withAuth(config.username, config.password, WSAuthScheme.BASIC)
       .withHeaders("Accept" -> "text/plain")
       .post(Json.toJson(body))
+      .map { response =>
+        if (response.status != 200) {
+          if (response.body.nonEmpty)
+            throw new ConnectionError(s"${response.status} ${response.body}")
+          else if (response.statusText.nonEmpty)
+            throw new ConnectionError(s"${response.status} ${response.statusText}")
+          else {
+            val msg = knownHttpErrs.getOrElse(response.status, "unknown")
+            throw new ConnectionError(s"err=$response $msg")
+          }
+        }
+      }
+
+  private def delete(path: String): Future[Unit] =
+    client.url(config.url + path)
+      .withAuth(config.username, config.password, WSAuthScheme.BASIC)
+      .delete()
       .map { response =>
         if (response.status != 200) {
           if (response.body.nonEmpty)
@@ -132,5 +154,9 @@ class LevarClient(val config: ClientConfig) {
     val org = orgOpt.getOrElse(config.org)
     val upd = new Dataset.Update(data = Some(data))
     post[Dataset.Update](s"/api/$org/dataset/$ds", upd)
+  }
+
+  def deleteDataset(org: String, id: String): Future[Unit] = {
+    delete(s"/api/$org/dataset/$id")
   }
 }

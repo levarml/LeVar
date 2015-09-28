@@ -148,7 +148,6 @@ trait Database {
    *
    * @param org the associated organization
    * @param ds the dataset to be added to the DB
-   * @return the same dataset with optionally some more metadata
    */
   def createDataset(org: String, ds: Dataset)
 
@@ -169,9 +168,16 @@ trait Database {
    * @param org the org associated with the dataset
    * @param id the dataset ID
    * @param updates the changes to make to the dataset
-   * @return the upddated dataset
    */
   def updateDataset(org: String, id: String, updates: Dataset.Update)
+
+  /**
+   * Delete a dataset from the DB
+   *
+   * @param org the org associated with the dataset
+   * @param id the datset ID
+   */
+  def deleteDataset(org: String, id: String)
 }
 
 /**
@@ -220,7 +226,7 @@ object impl extends Database with JsonLogging {
 
   /** Set up the database */
   def setUp() {
-    info("status" -> "startin", "action" -> "setup_db")
+    info("status" -> "starting", "action" -> "setup_db")
     DB.localTx { implicit session =>
       sqlFromClasspath("/setup.sql").execute.apply()
     }
@@ -233,7 +239,7 @@ object impl extends Database with JsonLogging {
     DB.localTx { implicit session =>
       sqlFromClasspath("/teardown.sql").execute.apply()
     }
-    info("tearing down DB done")
+    info("status" -> "done", "action" -> "tear_down_db")
   }
 
   /**
@@ -274,7 +280,7 @@ object impl extends Database with JsonLogging {
 
   def addAuth(user: String, pass: String) {
     validateIdentifier(user)
-    info(s"adding user $user")
+    info("status" -> "starting", "action" -> "add_auth", "user" -> user)
     val uuidOpt = try {
       DB.localTx { implicit session =>
         sql"""insert into auth (username, password) values ($user, crypt($pass, gen_salt('md5')))
@@ -290,7 +296,7 @@ object impl extends Database with JsonLogging {
     }
     uuidOpt match {
       case Some(uuid) => {
-        info(s"created new analysis $uuid")
+        info("status" -> "success", "action" -> "add_auth", "user" -> user)
       }
       case None => {
         throw new CannotCreateUserException(user)
@@ -299,7 +305,7 @@ object impl extends Database with JsonLogging {
   }
 
   def delAuth(user: String) {
-    info(s"deleting user $user")
+    info("status" -> "starting", "action" -> "del_auth", "user" -> user)
     val deletedUsers = DB.localTx { implicit session =>
       sql"delete from auth where username = $user returning username"
         .map(_.string("username"))
@@ -310,11 +316,13 @@ object impl extends Database with JsonLogging {
       throw new UserNotFoundException(s"$user not found")
     } else if (deletedUsers != List(user)) {
       throw new UnexpectedResultException(s"unexpected users deleted matching $user: ${deletedUsers.mkString(", ")}")
+    } else {
+      info("status" -> "success", "action" -> "del_auth", "user" -> user)
     }
   }
 
   def renameAuth(current: String, next: String) {
-    info(s"renaming user $current to $next")
+    info("status" -> "starting", "action" -> "rename_auth", "user" -> current, "update" -> next)
     val updatedUsers = DB.localTx { implicit session =>
       sql"""update auth
             set username = $next, updated_at = current_timestamp
@@ -328,11 +336,13 @@ object impl extends Database with JsonLogging {
     } else if (updatedUsers != List(next)) {
       val msg = s"unexpected users updated matching $current: ${updatedUsers.mkString(", ")}"
       throw new UnexpectedResultException(msg)
+    } else {
+      info("status" -> "success", "action" -> "rename_auth", "user" -> current, "update" -> next)
     }
   }
 
   def resetPassword(user: String, currentPass: String, nextPass: String) {
-    info(s"resetting password for $user with credentials")
+    info("status" -> "starting", "action" -> "reset_password", "user" -> user)
     val updatedUsers = DB.localTx { implicit setssion =>
       sql"""update auth
             set password = crypt($nextPass, gen_salt('md5')), updated_at = current_timestamp
@@ -347,12 +357,14 @@ object impl extends Database with JsonLogging {
     } else if (updatedUsers != List(user)) {
       val msg = s"unexpected users updated matching $user: ${updatedUsers.mkString(", ")}"
       throw new UnexpectedResultException(msg)
+    } else {
+      info("status" -> "success", "action" -> "reset_password", "user" -> user)
     }
   }
 
   def addOrg(id: String) {
     validateIdentifier(id)
-    info(s"creating new organization $id")
+    info("status" -> "starting", "action" -> "add_org", "org" -> id)
     val newIds = try {
       DB.localTx { implicit session =>
         sql"insert into org (provided_id) values ($id) returning provided_id"
@@ -369,10 +381,13 @@ object impl extends Database with JsonLogging {
     } else if (newIds != List(id)) {
       val msg = s"unexpected organizations created matching $id: ${newIds.mkString(", ")}"
       throw new UnexpectedResultException(msg)
+    } else {
+      info("status" -> "success", "action" -> "add_org", "org" -> id)
     }
   }
 
   def delOrg(id: String) {
+    info("status" -> "starting", "action" -> "del_org", "org" -> id)
     val deletedOrgs = DB.localTx { implicit session =>
       sql"delete from org where provided_id = $id returning provided_id"
         .map(_.string("provided_id"))
@@ -384,6 +399,8 @@ object impl extends Database with JsonLogging {
     } else if (deletedOrgs != List(id)) {
       val msg = s"unexpected orgs deleted matching $id: ${deletedOrgs.mkString(", ")}"
       throw new UnexpectedResultException(msg)
+    } else {
+      info("status" -> "success", "action" -> "del_org", "org" -> id)
     }
   }
 
@@ -484,7 +501,7 @@ object impl extends Database with JsonLogging {
 
   def renameOrg(current: String, next: String) {
     validateIdentifier(next)
-    info(s"renaming organization $current to $next")
+    info("status" -> "starting", "action" -> "rename_org", "org" -> current, "update" -> next)
     val updatedOrgs = DB.localTx { implicit session =>
       sql"""update org
             set provided_id = $next, updated_at = current_timestamp
@@ -501,11 +518,12 @@ object impl extends Database with JsonLogging {
       val msg = s"unexpected orgs updated matching $current: ${updatedOrgs.mkString(", ")}"
       throw new UnexpectedResultException(msg)
     } else {
-      info(s"renamed org $current to $next")
+      info("status" -> "success", "action" -> "rename_org", "org" -> current, "update" -> next)
     }
   }
 
   def userHasOrgAccess(user: String, org: String) = DB.readOnly { implicit session =>
+    info("status" -> "check", "action" -> "user_has_org_access", "user" -> user, "org" -> org)
     sql"""select exists(
           select 1 from auth inner join org_membership on auth.auth_id = org_membership.auth_id
           inner join org on org_membership.org_id = org.org_id
@@ -582,6 +600,7 @@ object impl extends Database with JsonLogging {
   }
 
   def getDataset(org: String, id: String): Dataset = DB.readOnly { implicit session =>
+    info("status" -> "starting", "action" -> "get_dataset", "org" -> org, "id" -> id)
     val dsOpt = sql"""
       select
       dataset.dataset_id::text dsid,
@@ -593,7 +612,7 @@ object impl extends Database with JsonLogging {
       count(datum.datum_id) as size
       from dataset inner join org on dataset.org_id = org.org_id
                    left join datum on dataset.dataset_id = datum.dataset_id
-      where dataset.provided_id = ${id}
+      where dataset.provided_id = ${id} and org.provided_id = ${org}
       group by dsid, ds_ident, dataset_type, dschema, d_created_at, d_updated_at"""
       .map { rs =>
         val ds = Dataset(
@@ -610,6 +629,7 @@ object impl extends Database with JsonLogging {
 
     dsOpt match {
       case Some((dsid, ds)) => {
+        info("status" -> "get_dataset_stats", "action" -> "get_dataset", "org" -> org, "id" -> id)
         val classCountsList = sql"""
           select datum.cvalue cls, count(1) count from datum
           where datum.dataset_id = ${dsid}::uuid and datum.cvalue is not null
@@ -629,22 +649,28 @@ object impl extends Database with JsonLogging {
             from datum
             where dataset_id = ${dsid}::uuid and rvalue is not null) q1"""
           .map { rs =>
-            Dataset.RegressionSummaryStats(
-              rs.double("min"),
-              rs.double("max"),
-              rs.double("mean"),
-              rs.double("stddev"),
-              rs.double("median"),
-              rs.double("p10"),
-              rs.double("p90"))
+            (rs.doubleOpt("min"),
+              rs.doubleOpt("max"),
+              rs.doubleOpt("mean"),
+              rs.doubleOpt("stddev"),
+              rs.doubleOpt("median"),
+              rs.doubleOpt("p10"),
+              rs.doubleOpt("p90"))
           }
           .single
           .apply()
 
+        info("status" -> "success", "action" -> "get_dataset", "org" -> org, "id" -> id)
+
         if (classCountsList.nonEmpty) {
           ds.copy(classCounts = Some(classCountsList.toMap))
         } else if (summaryStats.nonEmpty) {
-          ds.copy(summaryStats = Some(summaryStats.get))
+          summaryStats match {
+            case Some((Some(mn), Some(mx), Some(mean), Some(std), Some(med), Some(p10), Some(p90))) => {
+              ds.copy(summaryStats = Some(Dataset.RegressionSummaryStats(mn, mx, mean, std, med, p10, p90)))
+            }
+            case _ => ds
+          }
         } else {
           ds
         }
@@ -659,7 +685,7 @@ object impl extends Database with JsonLogging {
 
   def updateDataset(org: String, id: String, updates: Dataset.Update) = DB.localTx { implicit session =>
     try {
-      info(s"processing update for $org/$id")
+      info("status" -> "starging", "action" -> "update_dataset", "org" -> org, "id" -> id)
       val idOpt = sql"""
         select dataset.dataset_id::text dataset_id, dataset.dataset_type::text dataset_type
         from dataset inner join org on dataset.org_id = org.org_id
@@ -693,7 +719,6 @@ object impl extends Database with JsonLogging {
               datum <- dataBlock
               value <- datum.valueAsAny
             } yield (datum.data.toString, value)
-            info(s"data to append ${newData.size}")
 
             val newIds: Seq[(UUID, String)] = genUuids(newData.size)
             val batchInserts: Seq[Seq[Any]] = for {
@@ -711,7 +736,6 @@ object impl extends Database with JsonLogging {
                   .apply()
               }
               case Dataset.RegressionType => {
-                info(s"regression inserts ${batchInserts.size}")
                 sql"""
                   insert into datum (datum_id, ident, data, rvalue, dataset_id)
                   values (?::uuid, ?, ?::json, ?, ?::uuid)
@@ -724,8 +748,33 @@ object impl extends Database with JsonLogging {
         }
         case None => throw new NotFoundInDb()
       }
+      info("status" -> "success", "action" -> "update_dataset", "org" -> org, "id" -> id)
     } catch {
       case e: java.sql.BatchUpdateException => throw e.getNextException
+    }
+  }
+
+  def deleteDataset(org: String, id: String) = {
+    info("status" -> "starting", "action" -> "delete_dataset", "org" -> org, "id" -> id)
+    val delIds = DB.localTx { implicit session =>
+      sql"""
+          delete from dataset where dataset_id in (
+            select dataset.dataset_id
+            from dataset inner join org on dataset.org_id = org.org_id
+            where org.provided_id = ${org} and dataset.provided_id = ${id})
+          returning provided_id
+          """
+        .map(_.string("provided_id"))
+        .list
+        .apply()
+    }
+    if (delIds.isEmpty) {
+      throw new NotFoundInDb()
+    } else if (delIds != List(id)) {
+      val msg = s"unexpected datasets deleted matching $org/$id: ${delIds.mkString(", ")}"
+      throw new UnexpectedResultException(msg)
+    } else {
+      info("status" -> "success", "action" -> "delete_dataset", "org" -> org, "id" -> id)
     }
   }
 }

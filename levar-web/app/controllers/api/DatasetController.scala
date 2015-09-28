@@ -38,7 +38,7 @@ object DatasetController extends Controller with JsonLogging {
             { ds =>
               try {
                 db.impl.createDataset(org, ds)
-                infoU("status" -> "response", "action" -> "success", "dataset" -> s"$org/${ds.id}")
+                infoU("status" -> "success", "action" -> "create", "dataset" -> s"$org/${ds.id}")
                 val saved = db.impl.getDataset(org, ds.id)
                 render {
                   case AcceptsText() => Ok(Format.datasetToString(saved) + "\n")
@@ -128,5 +128,29 @@ object DatasetController extends Controller with JsonLogging {
     }
   }
 
-  def delete(org: String, id: String) = TODO
+  def delete(org: String, id: String) = Authenticated { implicit user =>
+    HasOrgAccess(user, org) {
+      Action { implicit request =>
+        infoU("status" -> "request", "action" -> "delete", "org" -> org, "dataset" -> id)
+        try {
+          val savedBeforeDelete = db.impl.getDataset(org, id)
+          db.impl.deleteDataset(org, id)
+          infoU("status" -> "success", "action" -> "deelete", "org" -> org, "dataset" -> id)
+          render {
+            case AcceptsText() => Ok(Format.datasetToString(savedBeforeDelete) + "\n")
+            case Accepts.Html() => Ok(views.html.DatasetApi.details(savedBeforeDelete))
+            case Accepts.Json() => Ok(Json.toJson(savedBeforeDelete))
+          }
+        } catch {
+          case _: NotFoundInDb => {
+            val msg = s"Dataset not found: $id"
+            render {
+              case AcceptsText() => NotFound(msg)
+              case Accepts.Json() => NotFound(Json.obj("message" -> msg))
+            }
+          }
+        }
+      }
+    }
+  }
 }

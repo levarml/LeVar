@@ -78,6 +78,10 @@ object LevarCli {
             val file = trailArg[String](required = true, descr = "TSV file for upload")
           }
 
+          val deleteCmd = new Subcommand("delete") {
+            val dataset = trailArg[String](required = true, descr = "Dataset to delete")
+          }
+
           val org = trailArg[String](required = false, descr = "Your organization")
         }
       }
@@ -339,6 +343,34 @@ object LevarCli {
             println(Format.datasetToString(dataset))
           } finally {
             src.close()
+          }
+        }
+
+        case List(args.datasetsCmd, args.datasetsCmd.deleteCmd) => {
+          val dsName = args.datasetsCmd.viewCmd.dataset()
+          val client = ClientConfigIo.loadClient
+          val (org, datasetId) = dsName match {
+            case OrgThingPattern(org, datasetId) => (org, datasetId)
+            case ThingPattern(datasetId) => (client.config.org, datasetId)
+            case _ => {
+              Console.err.println(s"Invalid dataset name: $dsName")
+              sys.exit(1)
+            }
+          }
+          println(
+            """|Are you sure you want to delete this dataset and associated experiments?
+               |To confirm, type your organization and dataset name (like "org/dataset")""".stripMargin)
+
+          readLine("> ").trim match {
+            case OrgThingPattern(orgVerify, datasetIdVerify) if orgVerify == org && datasetIdVerify == datasetId => {
+              Await.result(client.deleteDataset(org, datasetId), 10 seconds)
+              println("Success")
+            }
+            case _ => {
+              Console.err.println("Org + dataset do not match")
+              println(org, datasetId)
+              sys.exit(1)
+            }
           }
         }
 
