@@ -2,6 +2,8 @@ package levar
 
 import play.api.libs.json._
 import org.joda.time.DateTime
+import levar.util.eitherAsAny
+import levar.json._
 
 /**
  * Data type of items (or rows) in a [[Dataset]]
@@ -21,8 +23,22 @@ case class Datum(
     labels: Option[Seq[String]] = None,
     comments: Option[ResultSet[Comment]] = None) {
 
-  def valueAsAny: Option[Any] = for (v <- value) yield v match {
-    case Left(x) => x
-    case Right(x) => x
+  def valueAsAny: Option[Any] = value.map(eitherAsAny)
+
+  def dataByCol(cols: Seq[String]): Seq[Any] = {
+    val dataMap = data.as[Map[String, Either[Double, String]]].mapValues(eitherAsAny)
+    for (col <- cols) yield {
+      if (col.equalsIgnoreCase("id")) {
+        id.getOrElse("")
+      } else if (col.equalsIgnoreCase(Dataset.RegressionType.colname)) {
+        val Some(Left(scr)) = value
+        scr
+      } else if (col.equalsIgnoreCase(Dataset.ClassificationType.colname)) {
+        val Some(Right(cls)) = value
+        cls
+      } else {
+        dataMap(col)
+      }
+    }
   }
 }

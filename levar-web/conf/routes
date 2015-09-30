@@ -11,6 +11,7 @@ GET     /api/$org<[-\w\.]+>                                                  con
 GET     /api/$org<[-\w\.]+>/datasets                                         controllers.api.DatasetController.search(org: String)
 POST    /api/$org<[-\w\.]+>/dataset                                          controllers.api.DatasetController.create(org: String)
 GET     /api/$org<[-\w\.]+>/dataset/$id<[-\w\.]+>                            controllers.api.DatasetController.details(org: String, id: String)
+GET     /api/$org<[-\w\.]+>/dataset/$id<[-\w\.]+>/data                       controllers.api.DatumController.search(org: String, id: String, after: Option[String], gold: Option[Int])
 POST    /api/$org<[-\w\.]+>/dataset/$id<[-\w\.]+>                            controllers.api.DatasetController.update(org: String, id: String)
 DELETE  /api/$org<[-\w\.]+>/dataset/$id<[-\w\.]+>                            controllers.api.DatasetController.delete(org: String, id: String)
 POST    /api/$org<[-\w\.]+>/dataset/$id<[-\w\.]+>/label                      controllers.api.LabelController.addForDataset(org: String, id: String)

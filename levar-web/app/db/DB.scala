@@ -175,9 +175,19 @@ trait Database {
    * Delete a dataset from the DB
    *
    * @param org the org associated with the dataset
-   * @param id the datset ID
+   * @param id the dataset ID
    */
   def deleteDataset(org: String, id: String)
+
+  /**
+   * Search dataset data
+   *
+   * @param org the org associated with the dataset
+   * @param datasetId the dataset ID
+   * @param after if applicable, data must follow this datum ID
+   * @param max if applicatble, number of rows to return
+   */
+  def searchData(org: String, datasetId: String, after: Option[String] = None, max: Option[Int] = None, withValue: Boolean): ResultSet[Datum]
 }
 
 /**
@@ -776,5 +786,47 @@ object impl extends Database with JsonLogging {
     } else {
       info("status" -> "success", "action" -> "delete_dataset", "org" -> org, "id" -> id)
     }
+  }
+
+  def searchData(org: String, datasetId: String, after: Option[String] = None, max: Option[Int] = None, withVal: Boolean = false) = DB.readOnly { implicit session =>
+    info("status" -> "starting", "action" -> "search_data", "org" -> org, "dataset_id" -> datasetId)
+    val datasetDetails = sql"""
+        select dataset.dataset_id d_id, count(datum.datum_id) total_count
+        from dataset inner join org on dataset.org_id = org.org_id left join datum on datum.dataset_id = dataset.dataset_id
+        where dataset.provided_id = ${datasetId} and org.provided_id = ${org}
+        group by d_id"""
+      .map { rs => (rs.string("d_id"), rs.int("total_count")) }
+      .single
+      .apply()
+    val (datasetUuid, totalCount) = datasetDetails match {
+      case Some((uuid, c)) => (uuid, c)
+      case None => throw new NotFoundInDb
+    }
+    val afterIdent = after.map(hex2int).getOrElse(Int.MinValue)
+    val maxRows = max.getOrElse(100)
+    val datumQ: Seq[Datum] = sql"""
+        select to_hex(ident) ident_hex, data, rvalue, cvalue
+        from datum
+        where dataset_id = ${datasetUuid}::uuid
+        and ident > $afterIdent
+        order by ident
+        limit $maxRows"""
+      .map { rs =>
+        val ident = rs.string("ident_hex")
+        val datastr = rs.string("data")
+        val datajs = Json.parse(datastr)
+        val rvalue = rs.doubleOpt("rvalue")
+        val cvalue = rs.stringOpt("cvalue")
+        val value: Either[Double, String] = (rvalue, cvalue) match {
+          case (Some(num), None) => Left(num)
+          case (None, Some(cls)) => Right(cls)
+          case _ => throw new UnexpectedResultException(s"Unprocessed value for datum ${org}/${datasetId}/${ident}: ${(cvalue, rvalue)}")
+        }
+        Datum(datajs, if (withVal) Some(value) else None, Some(ident))
+      }
+      .list
+      .apply()
+
+    ResultSet(datumQ, total = Some(totalCount))
   }
 }

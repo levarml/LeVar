@@ -30,7 +30,7 @@ object DatasetController extends Controller with JsonLogging {
 
   def create(org: String) = Authenticated { implicit user =>
     HasOrgAccess(user, org) {
-      Action(BodyParsers.parse.json) { implicit request =>
+      Action(parse.json) { implicit request =>
         infoU("status" -> "request", "action" -> "create")
         try {
           request.body.validate[Dataset].fold(
@@ -100,7 +100,7 @@ object DatasetController extends Controller with JsonLogging {
 
   def update(org: String, id: String) = Authenticated { implicit user =>
     HasOrgAccess(user, org) {
-      Action(BodyParsers.parse.json) { implicit request =>
+      Action(parse.json) { implicit request =>
         infoU("status" -> "request", "action" -> "update", "dataset" -> id)
         request.body.validate[Dataset.Update].fold(
           errors => BadRequest(JsError.toFlatJson(errors)),

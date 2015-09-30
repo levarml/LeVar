@@ -11,6 +11,7 @@ import scala.io.Source
 import scala.io.StdIn.readLine
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import java.io.{ File, FileOutputStream, PrintStream, BufferedOutputStream }
 import breeze.linalg._
 import breeze.stats._
 import breeze.stats.DescriptiveStats._
@@ -80,6 +81,12 @@ object LevarCli {
 
           val deleteCmd = new Subcommand("delete") {
             val dataset = trailArg[String](required = true, descr = "Dataset to delete")
+          }
+
+          val downloadCmd = new Subcommand("download") {
+            val output = opt[String]("output", descr = "File to save dataset to")
+            val gold = toggle(name = "gold", default = Some(false), descrYes = "Include gold labels/values in output")
+            val dataset = trailArg[String](required = true, descr = "Dataset to view")
           }
 
           val org = trailArg[String](required = false, descr = "Your organization")
@@ -230,8 +237,11 @@ object LevarCli {
                 println(s"No datasets for $org")
               }
             } catch {
-              case e: ConnectionError => {
+              case e: ConnectionError if e.getMessage.startsWith("404") => {
                 Console.err.println(s"Could not access datasets for $org")
+                sys.exit(1)
+              }
+              case e: ConnectionError => {
                 Console.err.println(e.getMessage)
                 sys.exit(1)
               }
@@ -284,19 +294,22 @@ object LevarCli {
         case List(args.datasetsCmd, args.datasetsCmd.viewCmd) => {
           val dsName = args.datasetsCmd.viewCmd.dataset()
           val client = ClientConfigIo.loadClient
-          try {
-            val dataset = dsName match {
-              case OrgThingPattern(org, datasetId) =>
-                Await.result(client.getDataset(Some(org), datasetId), 10 seconds)
-              case ThingPattern(datasetId) =>
-                Await.result(client.getDataset(None, datasetId), 10 seconds)
-              case _ => {
-                Console.err.println(s"Invalid dataset name: $dsName")
-                sys.exit(1)
-              }
+          val (org, datasetId) = dsName match {
+            case OrgThingPattern(org, datasetId) => (org, datasetId)
+            case ThingPattern(datasetId) => (client.config.org, datasetId)
+            case _ => {
+              Console.err.println(s"Invalid dataset name: $dsName")
+              sys.exit(1)
             }
+          }
+          try {
+            val dataset = Await.result(client.getDataset(Some(org), datasetId), 10 seconds)
             println(Format.datasetToString(dataset))
           } catch {
+            case e: ConnectionError if e.getMessage.startsWith("404") => {
+              Console.err.println(s"Dataset not found: $org/$datasetId")
+              sys.exit(1)
+            }
             case e: ConnectionError => {
               Console.err.println(e.getMessage)
               sys.exit(1)
@@ -364,11 +377,65 @@ object LevarCli {
           readLine("> ").trim match {
             case OrgThingPattern(orgVerify, datasetIdVerify) if orgVerify == org && datasetIdVerify == datasetId => {
               Await.result(client.deleteDataset(org, datasetId), 10 seconds)
-              println("Success")
+              println("Deleted")
             }
             case _ => {
               Console.err.println("Org + dataset do not match")
-              println(org, datasetId)
+              sys.exit(1)
+            }
+          }
+        }
+
+        case List(args.datasetsCmd, args.datasetsCmd.downloadCmd) => {
+          val useGold = args.datasetsCmd.downloadCmd.gold.get == Some(true)
+          val dsName = args.datasetsCmd.downloadCmd.dataset()
+          val client = ClientConfigIo.loadClient
+          try {
+            val (org, datasetId) = dsName match {
+              case OrgThingPattern(org, datasetId) => (org, datasetId)
+              case ThingPattern(datasetId) => (client.config.org, datasetId)
+              case _ => {
+                Console.err.println(s"Invalid dataset name: $dsName")
+                sys.exit(1)
+              }
+            }
+
+            val dataset = Await.result(client.getDataset(org, datasetId), 10 seconds)
+
+            val cols = Seq("id") ++ dataset.columns ++ {
+              if (useGold) Seq(dataset.dtype.colname) else Seq.empty
+            }
+
+            val stream: PrintStream = args.datasetsCmd.downloadCmd.output.get match {
+              case Some(outputFilename) => {
+                new PrintStream(
+                  new BufferedOutputStream(
+                    new FileOutputStream(
+                      new File(outputFilename))))
+              }
+              case None => {
+                Console.out
+              }
+            }
+
+            try {
+              stream.println(cols.mkString("\t"))
+              var rs = Await.result(client.fetchData(org, datasetId, useGold), 10 seconds)
+              while (rs.nonEmpty) {
+                for (datum <- rs) {
+                  stream.println(datum.dataByCol(cols).map(_.toString).mkString("\t"))
+                }
+                rs.lastOption.flatMap(_.id) foreach { id =>
+                  rs = Await.result(client.fetchData(org, datasetId, useGold, id), 10 seconds)
+                }
+              }
+            } finally {
+              stream.close()
+            }
+
+          } catch {
+            case e: ConnectionError => {
+              Console.err.println(e.getMessage)
               sys.exit(1)
             }
           }

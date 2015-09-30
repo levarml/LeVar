@@ -16,4 +16,6 @@ case class ResultSet[A](
     nextPath: Option[String] = None) extends Traversable[A] {
 
   def foreach[U](f: A => U) { items.foreach(f) }
+
+  override def lastOption: Option[A] = items.lastOption
 }

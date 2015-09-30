@@ -8,18 +8,21 @@ object Dataset {
   sealed trait DatasetType {
     def name: String
     def code: Char
+    def colname: String
   }
 
   /** Marker for classification datasets */
   case object ClassificationType extends DatasetType {
     val name = "classification"
     val code = 'c'
+    val colname = "class"
   }
 
   /** Marker for regression datasets */
   case object RegressionType extends DatasetType {
     val name = "regression"
     val code = 'r'
+    val colname = "score"
   }
 
   /** Class of updates a client can make to a dataset */
@@ -63,15 +66,20 @@ object Dataset {
  * @param comments comments made on the data set
  */
 case class Dataset(
-  id: String,
-  dtype: Dataset.DatasetType,
-  schema: Dataset.DataValidator,
-  name: Option[String] = None,
-  createdAt: Option[DateTime] = None,
-  updatedAt: Option[DateTime] = None,
-  size: Option[Int] = None,
-  classes: Option[Set[String]] = None,
-  classCounts: Option[Map[String, Int]] = None,
-  summaryStats: Option[Dataset.RegressionSummaryStats] = None,
-  labels: Option[Seq[String]] = None,
-  comments: Option[ResultSet[Comment]] = None)
+    id: String,
+    dtype: Dataset.DatasetType,
+    schema: Dataset.DataValidator,
+    name: Option[String] = None,
+    createdAt: Option[DateTime] = None,
+    updatedAt: Option[DateTime] = None,
+    size: Option[Int] = None,
+    classes: Option[Set[String]] = None,
+    classCounts: Option[Map[String, Int]] = None,
+    summaryStats: Option[Dataset.RegressionSummaryStats] = None,
+    labels: Option[Seq[String]] = None,
+    comments: Option[ResultSet[Comment]] = None) {
+
+  import Dataset.{ ClassificationType, RegressionType }
+
+  def columns: Seq[String] = schema.fields.map(_._1)
+}

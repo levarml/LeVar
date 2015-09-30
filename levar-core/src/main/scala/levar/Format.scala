@@ -43,6 +43,11 @@ object Format {
     }
   }
 
+  def datumRStoString(datumRS: ResultSet[Datum]): String = {
+    // TODO change
+    s"Reults: ${datumRS.total.getOrElse(datumRS.items.size)}"
+  }
+
   private def fieldfmt(field: String, n: Int = 20) = {
     if (field.size > n) {
       field.take(n - 3) + "..."

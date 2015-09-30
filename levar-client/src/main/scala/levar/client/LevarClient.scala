@@ -9,6 +9,7 @@ import play.api.libs.json._
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration.Inf
 import org.joda.time.DateTime
+import java.net.URLEncoder.encode
 
 object LevarClient {
 
@@ -96,7 +97,7 @@ class LevarClient(val config: ClientConfig) {
             throw new ConnectionError(s"${response.status} ${response.statusText}")
           else {
             val msg = knownHttpErrs.getOrElse(response.status, "unknown")
-            throw new ConnectionError(s"err=$response $msg")
+            throw new ConnectionError(s"${response.status} $msg")
           }
         }
       }
@@ -113,7 +114,7 @@ class LevarClient(val config: ClientConfig) {
             throw new ConnectionError(s"${response.status} ${response.statusText}")
           else {
             val msg = knownHttpErrs.getOrElse(response.status, "unknown")
-            throw new ConnectionError(s"err=$response $msg")
+            throw new ConnectionError(s"${response.status} $msg")
           }
         }
       }
@@ -132,7 +133,7 @@ class LevarClient(val config: ClientConfig) {
           } else {
             knownHttpErrs.getOrElse(response.status, "unknown error")
           }
-          throw new ConnectionError(s"{$response.status} - $msg")
+          throw new ConnectionError(s"${response.status} $msg")
         }
       }
   }
@@ -146,7 +147,10 @@ class LevarClient(val config: ClientConfig) {
   }
 
   def getDataset(orgOpt: Option[String], id: String): Future[Dataset] = {
-    val org = orgOpt.getOrElse(config.org)
+    getDataset(orgOpt.getOrElse(config.org), id)
+  }
+
+  def getDataset(org: String, id: String): Future[Dataset] = {
     get[Dataset](s"/api/$org/dataset/$id")
   }
 
@@ -158,5 +162,15 @@ class LevarClient(val config: ClientConfig) {
 
   def deleteDataset(org: String, id: String): Future[Unit] = {
     delete(s"/api/$org/dataset/$id")
+  }
+
+  def fetchData(org: String, datasetId: String, includeGold: Boolean): Future[ResultSet[Datum]] = {
+    val g = if (includeGold) "1" else "0"
+    get[ResultSet[Datum]](s"/api/$org/dataset/$datasetId/data?gold=$g")
+  }
+
+  def fetchData(org: String, datasetId: String, includeGold: Boolean, after: String): Future[ResultSet[Datum]] = {
+    val g = if (includeGold) "1" else "0"
+    get[ResultSet[Datum]](s"/api/$org/dataset/$datasetId/data?gold=${g}&after=${encode(after, "utf-8")}")
   }
 }

@@ -15,6 +15,7 @@ package object util {
     } catch {
       case _: MalformedURLException => false
     }
-
   }
+
+  def eitherAsAny(eith: Either[_, _]): Any = eith.fold(identity, identity)
 }
