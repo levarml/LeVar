@@ -11,7 +11,8 @@ package object json {
   import org.joda.time.format._
   import org.joda.time.DateTimeZone.UTC
   import scala.collection.mutable.Buffer
-  import Dataset._
+  import Dataset.{ Update => DatasetUpdate, DatasetType, ClassificationType, RegressionType, DataValidator, NumberField, StringField, DataFieldType }
+  import Experiment.{ Update => ExperimentUpdate }
 
   implicit val JodaDateFormat = new Format[DateTime] {
     private val tsparser = ISODateTimeFormat.dateTimeParser()
@@ -142,14 +143,14 @@ package object json {
     (__ \ "comments").formatNullable[ResultSet[Comment]]
   )(Dataset.apply _, unlift(Dataset.unapply))
 
-  implicit lazy val DatasetUpdateFormat: Format[Update] = (
+  implicit lazy val DatasetUpdateFormat: Format[DatasetUpdate] = (
     (__ \ "id").formatNullable[String] and
     (__ \ "data").formatNullable[Seq[Datum]]
-  )(Update.apply _, unlift(Update.unapply))
+  )(DatasetUpdate.apply _, unlift(DatasetUpdate.unapply))
 
   implicit lazy val ExperimentFormat: Format[Experiment] = (
     (__ \ "id").format[String] and
-    (__ \ "dataset_ids").formatNullable[Seq[String]] and
+    (__ \ "dataset_id").formatNullable[String] and
     (__ \ "name").formatNullable[String] and
     (__ \ "created_at").formatNullable[DateTime] and
     (__ \ "updated_at").formatNullable[DateTime] and
@@ -159,12 +160,18 @@ package object json {
   )(Experiment.apply _, unlift(Experiment.unapply))
 
   implicit lazy val PredictionFormat: Format[Prediction] = (
+    (__ \ "data_id").format[String] and
     (__ \ "value").format[Either[Double, String]] and
     (__ \ "inputs").formatNullable[Datum] and
-    (__ \ "data_id").formatNullable[String] and
     (__ \ "score").formatNullable[Double] and
+    (__ \ "id").formatNullable[String] and
     (__ \ "created_at").formatNullable[DateTime] and
     (__ \ "labels").formatNullable[Seq[String]] and
     (__ \ "comments").formatNullable[ResultSet[Comment]]
   )(Prediction.apply _, unlift(Prediction.unapply))
+
+  implicit lazy val ExperimentUpdateFormat: Format[ExperimentUpdate] = (
+    (__ \ "id").formatNullable[String] and
+    (__ \ "predictions").formatNullable[Seq[Prediction]]
+  )(ExperimentUpdate.apply _, unlift(ExperimentUpdate.unapply))
 }

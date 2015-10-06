@@ -12,6 +12,7 @@ class UserNotFoundException(msg: String) extends Exception(msg)
 class UnexpectedResultException(msg: String) extends Exception(msg)
 
 class DatasetIdAlreadyExists(msg: String) extends Exception(msg)
+class ExperimentIdAlreadyExists(msg: String) extends Exception(msg)
 
 class NotFoundInDb extends Exception
 
@@ -188,6 +189,16 @@ trait Database {
    * @param max if applicatble, number of rows to return
    */
   def searchData(org: String, datasetId: String, after: Option[String] = None, max: Option[Int] = None, withValue: Boolean): ResultSet[Datum]
+
+  def searchExperiments(org: String): ResultSet[Experiment]
+
+  def searchExperiments(org: String, datasetId: String): ResultSet[Experiment]
+
+  def createExperiment(org: String, datasetId: String, experiment: Experiment)
+
+  def getExperiment(org: String, datasetId: String, experimentId: String): Experiment
+
+  def updateExperiment(org: String, datasetId: String, experimentId: String, updates: Experiment.Update)
 }
 
 /**
@@ -209,6 +220,7 @@ object impl extends Database with JsonLogging {
   import org.joda.time.DateTimeZone.UTC
   import levar.json._
   import levar.Dataset._
+  import collection.mutable.Buffer
 
   private def sqlFromClasspath(path: String) = {
     SQL(io.Source.fromInputStream(getClass.getResourceAsStream(path)).mkString)
@@ -828,5 +840,201 @@ object impl extends Database with JsonLogging {
       .apply()
 
     ResultSet(datumQ, total = Some(totalCount))
+  }
+
+  def searchExperiments(org: String): ResultSet[Experiment] = DB.readOnly { implicit session =>
+    info("status" -> "starting", "action" -> "search_data", "org" -> org)
+    val experiments = sql"""
+        select distinct experiment.provided_id exp_id, dataset.provided_id dataset_id
+        from experiment
+          inner join dataset on dataset.dataset_id = experiment.dataset_id
+          inner join org on dataset.org_id = org.org_id
+        where org.provided_id = ${org}"""
+      .map { rs => Experiment(rs.string("exp_id"), Some(rs.string("dataset_id"))) }
+      .list
+      .apply()
+    ResultSet(experiments)
+  }
+
+  def searchExperiments(org: String, datasetId: String): ResultSet[Experiment] = DB.readOnly { implicit session =>
+    info("status" -> "starting", "action" -> "search_data", "org" -> org)
+    val experiments = sql"""
+        select distinct experiment.provided_id exp_id, dataset.provided_id dataset_id
+        from experiment
+          inner join dataset on dataset.dataset_id = experiment.dataset_id
+          inner join org on dataset.org_id = org.org_id
+        where dataset.provided_id = ${datasetId}
+          and org.provided_id = ${org}
+        """
+      .map { rs => Experiment(rs.string("exp_id"), Some(rs.string("dataset_id"))) }
+      .list
+      .apply()
+    ResultSet(experiments)
+  }
+
+  private val experimentDupeKeyMsgSnippet =
+    """duplicate key value violates unique constraint "experiment_provided_id_dataset_id_key""""
+
+  def createExperiment(org: String, datasetId: String, experiment: Experiment) = DB.localTx { implicit session =>
+    info("status" -> "starting", "action" -> "create_experiment", "org" -> org, "dataset" -> datasetId, "experiment" -> experiment.id)
+    val datasetUuidOpt = sql"""
+        select dataset.dataset_id::text did
+        from dataset
+          inner join org on dataset.org_id = org.org_id
+        where dataset.provided_id = ${datasetId}
+          and org.provided_id = ${org}"""
+      .map(_.string("did"))
+      .single
+      .apply()
+
+    datasetUuidOpt match {
+      case Some(datasetUuid) => {
+        try {
+          sql"""
+              insert into experiment (provided_id, dataset_id)
+              values (${experiment.id}, ${datasetUuid}::uuid)"""
+            .update
+            .apply()
+          info("status" -> "success", "action" -> "create_experiment", "org" -> org, "dataset" -> datasetId, "experiment" -> experiment.id)
+        } catch {
+          case e: PSQLException if e.getMessage.contains(experimentDupeKeyMsgSnippet) =>
+            throw new ExperimentIdAlreadyExists(s"$org/$datasetId/${experiment.id}")
+        }
+      }
+      case None => {
+        throw new NotFoundInDb
+      }
+    }
+  }
+
+  def getExperiment(org: String, datasetId: String, experimentId: String) = DB.readOnly { implicit session =>
+    info("status" -> "starting", "action" -> "get_experiment", "org" -> org, "dataset" -> datasetId, "experiment" -> experimentId)
+    val experimentOpt = sql"""
+        select
+          experiment.provided_id exp_id,
+          dataset.provided_id data_id,
+          extract(epoch from experiment.created_at) e_created_at,
+          extract(epoch from experiment.updated_at) e_updated_at,
+          count (prediction.prediction_id) num_predictions
+        from experiment
+          inner join dataset on experiment.dataset_id = dataset.dataset_id
+          inner join org on dataset.org_id = org.org_id
+          left join prediction on prediction.experiment_id = experiment.experiment_id
+        where experiment.provided_id = ${experimentId}
+          and org.provided_id = ${org}
+          and dataset.provided_id = ${datasetId}
+        group by exp_id, data_id, e_created_at, e_updated_at"""
+      .map { rs =>
+        Experiment(
+          rs.string("exp_id"),
+          datasetId = Some(rs.string("data_id")),
+          createdAt = Some(jodaFromEpoch(rs.double("e_created_at"))),
+          updatedAt = Some(jodaFromEpoch(rs.double("e_updated_at"))))
+      }
+      .single
+      .apply()
+
+    experimentOpt match {
+      case Some(experiment) => {
+        info("status" -> "success", "action" -> "get_experiment", "org" -> org, "dataset" -> datasetId, "experiment" -> experimentId)
+        experiment
+      }
+      case None => {
+        throw new NotFoundInDb
+      }
+    }
+  }
+
+  def updateExperiment(org: String, datasetId: String, experimentId: String, updates: Experiment.Update) = DB.localTx { implicit session =>
+    try {
+      info("status" -> "starging", "action" -> "update_experiment", "org" -> org, "dataset" -> datasetId, "experiment" -> experimentId)
+      val idOpt = sql"""
+        select
+          experiment.experiment_id::text exp_id, dataset.dataset_id::text data_id, dataset.dataset_type::text dataset_type
+        from experiment
+          inner join dataset on experiment.dataset_id = dataset.dataset_id
+          inner join org on dataset.org_id = org.org_id
+        where org.provided_id = ${org}
+          and dataset.provided_id = ${datasetId}
+          and experiment.provided_id = ${experimentId}
+        """
+        .map(row => (row.string("exp_id"), row.string("data_id"), row.string("dataset_type")))
+        .single
+        .apply()
+
+      idOpt match {
+        case Some((experimentUuid, datasetUuid, dtypeStr)) => {
+          val dtype = datasetType(dtypeStr)
+          updates.id foreach { newProvidedId =>
+            try {
+              sql"""
+                update experiment set
+                  provided_id = ${newProvidedId},
+                  updated_at = current_timestamp
+                where dataset_id = ${experimentUuid}::uuid
+                """
+                .execute
+                .apply()
+            } catch {
+              case e: PSQLException if e.getMessage.contains("duplicate key value violates unique constraint") => {
+                throw new ExperimentIdAlreadyExists(newProvidedId)
+              }
+            }
+          }
+          updates.data foreach { dataBlock =>
+
+            val datumProvidedIds = for {
+              prediction <- dataBlock
+              datum <- prediction.datum
+              datumId <- datum.id
+            } yield hex2int(datumId)
+            val datumProvidedIdsBuf = List(datumProvidedIds: _*)
+
+            val datumUuids = {
+              val datumIdents = Buffer(dataBlock.map(_.datumId).map(hex2int): _*)
+              sql"""
+                  select to_hex(ident) datum_ident, datum_id::text datum_uuid
+                  from datum
+                  where dataset_id = ${datasetUuid}::uuid and ident in (${datumIdents})"""
+                .map { rs => rs.string("datum_ident") -> rs.string("datum_uuid") }
+                .list
+                .apply()
+            }
+
+            val datumUuidMap = datumUuids.toMap
+
+            val newIds: Seq[(UUID, String)] = genUuids(datumUuidMap.size)
+
+            val batchInserts: Seq[Seq[Any]] = for {
+              ((newUuid, newIdent), prediction) <- (newIds zip dataBlock)
+              datumUuid <- datumUuidMap.get(prediction.datumId)
+            } yield {
+              Seq(newUuid.toString, hex2int(newIdent), datumUuid.toString, experimentUuid.toString, prediction.valueAsAny)
+            }
+
+            dtype match {
+              case ClassificationType => {
+                sql"""
+                    insert into prediction (prediction_id, ident, datum_id, experiment_id, cvalue)
+                    values (?::uuid, ?, ?::uuid, ?::uuid, ?)"""
+                  .batch(batchInserts: _*)
+                  .apply()
+              }
+              case RegressionType => {
+                sql"""
+                    insert into prediction (prediction_id, ident, datum_id, experiment_id, rvalue)
+                    values (?::uuid, ?, ?::uuid, ?::uuid, ?)"""
+                  .batch(batchInserts: _*)
+                  .apply()
+              }
+            }
+          }
+        }
+        case None => throw new NotFoundInDb()
+      }
+      info("status" -> "success", "action" -> "update_experiment", "org" -> org, "dataset" -> datasetId, "experiment" -> experimentId)
+    } catch {
+      case e: java.sql.BatchUpdateException => throw e.getNextException
+    }
   }
 }

@@ -143,7 +143,7 @@ class LevarClient(val config: ClientConfig) {
 
   def createDataset(ds: Dataset, orgOpt: Option[String] = None): Future[Unit] = {
     val org = orgOpt.getOrElse(config.org)
-    post[Dataset](s"/api/$org/dataset", ds)
+    post[Dataset](s"/api/$org/new_dataset", ds)
   }
 
   def getDataset(orgOpt: Option[String], id: String): Future[Dataset] = {
@@ -151,26 +151,47 @@ class LevarClient(val config: ClientConfig) {
   }
 
   def getDataset(org: String, id: String): Future[Dataset] = {
-    get[Dataset](s"/api/$org/dataset/$id")
+    get[Dataset](s"/api/$org/$id")
   }
 
   def uploadDatasetData(ds: String, data: Seq[Datum], orgOpt: Option[String] = None): Future[Unit] = {
     val org = orgOpt.getOrElse(config.org)
-    val upd = new Dataset.Update(data = Some(data))
-    post[Dataset.Update](s"/api/$org/dataset/$ds", upd)
+    val upd = Dataset.Update(data = Some(data))
+    post[Dataset.Update](s"/api/$org/$ds/update", upd)
   }
 
   def deleteDataset(org: String, id: String): Future[Unit] = {
-    delete(s"/api/$org/dataset/$id")
+    delete(s"/api/$org/$id")
   }
 
   def fetchData(org: String, datasetId: String, includeGold: Boolean): Future[ResultSet[Datum]] = {
     val g = if (includeGold) "1" else "0"
-    get[ResultSet[Datum]](s"/api/$org/dataset/$datasetId/data?gold=$g")
+    get[ResultSet[Datum]](s"/api/$org/$datasetId/data?gold=$g")
   }
 
   def fetchData(org: String, datasetId: String, includeGold: Boolean, after: String): Future[ResultSet[Datum]] = {
     val g = if (includeGold) "1" else "0"
-    get[ResultSet[Datum]](s"/api/$org/dataset/$datasetId/data?gold=${g}&after=${encode(after, "utf-8")}")
+    get[ResultSet[Datum]](s"/api/$org/$datasetId/data?gold=${g}&after=${encode(after, "utf-8")}")
+  }
+
+  def searchExperiments(org: String, datasetId: String): Future[ResultSet[Experiment]] = {
+    get[ResultSet[Experiment]](s"/api/$org/$datasetId/experiments")
+  }
+
+  def searchExperiments(org: String): Future[ResultSet[Experiment]] = {
+    get[ResultSet[Experiment]](s"/api/$org/experiments")
+  }
+
+  def createExperiment(org: String, datasetId: String, experiment: Experiment): Future[Unit] = {
+    post[Experiment](s"/api/$org/$datasetId/new_experiment", experiment)
+  }
+
+  def uploadExperimentData(org: String, datasetId: String, experimentId: String, data: Seq[Prediction]): Future[Unit] = {
+    val upd = Experiment.Update(data = Some(data))
+    post[Experiment.Update](s"/api/$org/$datasetId/$experimentId/update", upd)
+  }
+
+  def getExperiment(org: String, datasetId: String, experimentId: String): Future[Experiment] = {
+    get[Experiment](s"/api/$org/$datasetId/$experimentId")
   }
 }

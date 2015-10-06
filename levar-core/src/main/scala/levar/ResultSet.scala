@@ -18,4 +18,6 @@ case class ResultSet[A](
   def foreach[U](f: A => U) { items.foreach(f) }
 
   override def lastOption: Option[A] = items.lastOption
+
+  def noResults: Boolean = total == Some(0) || items.isEmpty
 }

@@ -6,7 +6,7 @@ import org.joda.time.DateTime
  * Experiment data type
  *
  * @param id the user provided identifier, unique within the organization
- * @param datasetIds the IDs of the datasets associated with the experiment, for creation requests
+ * @param datasetId the ID of the datasets associated with the experiment
  * @param name optional user provided name of the experiment
  * @param createdAt the date the experiment was stored in the DB
  * @param updatedAd the date the experiment was updated last
@@ -17,10 +17,15 @@ import org.joda.time.DateTime
  */
 case class Experiment(
   id: String,
-  datasetIds: Option[Seq[String]] = None,
+  datasetId: Option[String] = None,
   name: Option[String] = None,
   createdAt: Option[DateTime] = None,
   updatedAt: Option[DateTime] = None,
   size: Option[Int] = None,
   labels: Option[Seq[String]] = None,
   comments: Option[ResultSet[Comment]] = None)
+
+object Experiment {
+
+  case class Update(id: Option[String] = None, data: Option[Seq[Prediction]] = None)
+}

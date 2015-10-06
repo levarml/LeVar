@@ -44,6 +44,9 @@ object LevarCli {
          |Options:""".stripMargin)
 
         val configCmd = new Subcommand("config") {
+          banner(" Configure your client\n\n options:")
+          footer("")
+
           val url = opt[String](
             "url",
             noshort = true,
@@ -64,29 +67,76 @@ object LevarCli {
         }
 
         val datasetsCmd = new Subcommand("datasets") {
+          banner(" View and manipulate datasets\n Without further sub-commands, lists your datasets\n\n options:")
+          footer("")
+
           val uploadCmd = new Subcommand("upload") {
+            banner(" Create a new dataset and upload a TSV file\n\n options:")
+            footer("")
             val name = opt[String]("name", descr = "Name for the dataset (default = the filename)")
             val org = opt[String]("org", descr = "Upload dataset to a specific organization")
             val file = trailArg[String](required = true, descr = "TSV file for upload")
           }
 
           val viewCmd = new Subcommand("view") {
-            val dataset = trailArg[String](required = true, descr = "Dataset to view")
+            banner(" View a dataset")
+            footer("")
+            val dataset = trailArg[String](required = true, descr = "Dataset to view (by ID or org/id pattern)")
           }
 
           val previewTsvCmd = new Subcommand("preview-tsv") {
+            banner(" Ingest a TSV dataset and see a high level summary.\n\n options:")
+            footer("")
             val name = opt[String]("name", descr = "Name for the dataset (default = the filename)")
             val file = trailArg[String](required = true, descr = "TSV file for upload")
           }
 
           val deleteCmd = new Subcommand("delete") {
+            banner(" Delete a dataset from the database")
+            footer("")
             val dataset = trailArg[String](required = true, descr = "Dataset to delete")
           }
 
           val downloadCmd = new Subcommand("download") {
+            banner(" Download a dataset from the database. By default does *not* include gold labels/values\n\n options:")
+            footer("")
             val output = opt[String]("output", descr = "File to save dataset to")
             val gold = toggle(name = "gold", default = Some(false), descrYes = "Include gold labels/values in output")
             val dataset = trailArg[String](required = true, descr = "Dataset to view")
+          }
+
+          val org = trailArg[String](required = false, descr = "Your organization")
+        }
+
+        val experimentsCmd = new Subcommand("experiments") {
+          banner(" View and manipulate experiments\n\n options:")
+          footer("")
+
+          val uploadCmd = new Subcommand("upload") {
+            banner(" Upload a TSV experiment file to database\n\n options:")
+            footer("")
+            val name = opt[String]("name", descr = "Name for the dataset (default = the filename)")
+            val dataset = trailArg[String](required = true, descr = "Dataset associated with the experiment")
+            val file = trailArg[String](required = true, descr = "TSV file for upload; must include id and score/class columns")
+          }
+
+          val listCmd = new Subcommand("list") {
+            banner(" List experiments associated with a dataset")
+            footer("")
+            val dataset = trailArg[String]("dataset", required = false, descr = "List experiments for this dataset")
+            val org = opt[String]("org", required = false, descr = "Organization to list if not your default")
+          }
+
+          val deleteCmd = new Subcommand("delete") {
+            banner(" Delete a dataset")
+            footer("")
+            val experiment = trailArg[String](required = true, descr = "Experiment to delete")
+          }
+
+          val viewCmd = new Subcommand("view") {
+            banner(" View a summary of experiment results")
+            footer("")
+            val experiment = trailArg[String](required = true, descr = "Experiment to view")
           }
 
           val org = trailArg[String](required = false, descr = "Your organization")
@@ -436,6 +486,87 @@ object LevarCli {
           } catch {
             case e: ConnectionError => {
               Console.err.println(e.getMessage)
+              sys.exit(1)
+            }
+          }
+        }
+
+        case List(args.experimentsCmd, args.experimentsCmd.listCmd) => {
+          val dsNameOpt = args.experimentsCmd.listCmd.dataset.get
+          val client = ClientConfigIo.loadClient
+          val org = args.experimentsCmd.listCmd.org.get.getOrElse(client.config.org)
+          try {
+            val experimentRS = dsNameOpt match {
+              case Some(dsName) => {
+                val (datasetOrg, datasetId) = dsName match {
+                  case OrgThingPattern(datasetOrg, datasetId) => (datasetOrg, datasetId)
+                  case ThingPattern(datasetId) => (org, datasetId)
+                  case _ => {
+                    Console.err.println(s"Invalid dataset name: $dsName")
+                    sys.exit(1)
+                  }
+                }
+                Await.result(client.searchExperiments(org, datasetId), 10 seconds)
+              }
+              case None => {
+                Await.result(client.searchExperiments(org), 10 seconds)
+              }
+            }
+            println(Format.experimentRStoString(experimentRS))
+
+          } catch {
+            case e: ConnectionError => {
+              Console.err.println(e.getMessage)
+              sys.exit(1)
+            }
+          }
+        }
+
+        case List(args.experimentsCmd, args.experimentsCmd.uploadCmd) => {
+          try {
+            val client = ClientConfigIo.loadClient
+            val fileName = args.experimentsCmd.uploadCmd.file()
+            val dsName = args.experimentsCmd.uploadCmd.dataset()
+            val (org, datasetId) = dsName match {
+              case OrgThingPattern(datasetOrg, datasetId) => (datasetOrg, datasetId)
+              case ThingPattern(datasetId) => (client.config.org, datasetId)
+              case _ => {
+                Console.err.println(s"Invalid dataset name: $dsName")
+                sys.exit(1)
+              }
+            }
+
+            if (!(fileName.endsWith(".tsv") || fileName.endsWith(".txt"))) {
+              throw new RuntimeException("Expected to see a TSV file (.tsv or .txt)")
+            }
+
+            val name = args.experimentsCmd.uploadCmd.name.get.getOrElse(fileName)
+
+            val src = Source.fromFile(args.experimentsCmd.uploadCmd.file())
+
+            try {
+              val dataset = Await.result(client.getDataset(Some(org), datasetId), 10 seconds)
+              val tabular = TsvExperiment.fromSource(dataset.dtype, name, src)
+              val experiment = tabular.asExperiment
+              Await.result(client.createExperiment(org, datasetId, experiment), 10 seconds)
+              for (data <- tabular.data.grouped(1000)) {
+                val d = data.toSeq
+                Await.result(client.uploadExperimentData(org, datasetId, experiment.id, d), 10 seconds)
+              }
+              val saved = Await.result(client.getExperiment(org, datasetId, name), 10 seconds)
+              println(Format.experimentToString(saved))
+            } catch {
+              case e: ConnectionError => {
+                Console.err.println("Could not upload datset")
+                Console.err.println(e.getMessage)
+                sys.exit(1)
+              }
+            } finally {
+              src.close()
+            }
+          } catch {
+            case _: MissingClientConfig => {
+              Console.err.println("Missing cofig -- run `levar config` to set up")
               sys.exit(1)
             }
           }

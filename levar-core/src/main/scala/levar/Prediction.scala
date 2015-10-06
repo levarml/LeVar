@@ -1,5 +1,6 @@
 package levar
 
+import levar.util.eitherAsAny
 import org.joda.time.DateTime
 
 /**
@@ -15,10 +16,14 @@ import org.joda.time.DateTime
  * @param comments the set of comments made of the prediction
  */
 case class Prediction(
-  value: Either[Double, String],
-  datum: Option[Datum] = None,
-  datumId: Option[String] = None,
-  score: Option[Double] = None,
-  createdAt: Option[DateTime] = None,
-  labels: Option[Seq[String]] = None,
-  comments: Option[ResultSet[Comment]] = None)
+    datumId: String,
+    value: Either[Double, String],
+    datum: Option[Datum] = None,
+    score: Option[Double] = None,
+    id: Option[String] = None,
+    createdAt: Option[DateTime] = None,
+    labels: Option[Seq[String]] = None,
+    comments: Option[ResultSet[Comment]] = None) {
+
+  def valueAsAny: Any = eitherAsAny(value)
+}

@@ -1,7 +1,7 @@
 package levar.io
 
 import levar.data.{ TabularDataset, LevarDataError }
-import levar.Dataset
+import levar.Dataset.{ RegressionType, ClassificationType, NumberField, StringField }
 import scala.io.Source
 
 object TsvDataset {
@@ -31,9 +31,9 @@ object TsvDataset {
       val scoreIdx = header.indexWhere(_.equalsIgnoreCase("score"))
       val classIdx = header.indexWhere(_.equalsIgnoreCase("class"))
       if (scoreIdx >= 0 && classIdx < 0) {
-        (Dataset.RegressionType, scoreIdx)
+        (RegressionType, scoreIdx)
       } else if (scoreIdx < 0 && classIdx >= 0) {
-        (Dataset.ClassificationType, classIdx)
+        (ClassificationType, classIdx)
       } else if (scoreIdx >= 0 && classIdx >= 0) {
         throw new LevarDataError("Cannot have both 'class' and 'score' fields, indeterminate dataset type")
       } else {
@@ -45,9 +45,9 @@ object TsvDataset {
     val dataFields = for ((f, i) <- header.zipWithIndex if i != valCol) yield {
       try {
         buf.map(_(i).toDouble)
-        (i, f, Dataset.NumberField)
+        (i, f, NumberField)
       } catch {
-        case _: NumberFormatException => (i, f, Dataset.StringField)
+        case _: NumberFormatException => (i, f, StringField)
       }
     }
 

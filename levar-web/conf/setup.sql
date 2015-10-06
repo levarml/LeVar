@@ -108,16 +108,16 @@ create table if not exists experiment (
   experiment_id uuid not null primary key default uuid_generate_v1mc(),
   provided_id text not null,
   name text,
-  org_id uuid not null references org (org_id) on delete cascade on update restrict,
+  dataset_id uuid not null references dataset (dataset_id) on delete cascade on update restrict,
   created_at timestamp with time zone not null default current_timestamp,
   updated_at timestamp with time zone not null default current_timestamp,
-  unique (provided_id, org_id)
+  unique (provided_id, dataset_id)
 );
 
 do $$
 begin
-if not exists (select 1 from pg_class where relname = 'experiment_org_idx') then
-  create index experiment_org_idx on experiment using btree (org_id);
+if not exists (select 1 from pg_class where relname = 'experiment_dataset_idx') then
+  create index experiment_dataset_idx on experiment using btree (dataset_id);
 end if;
 end$$;
 
@@ -132,28 +132,6 @@ do $$
 begin
 if not exists (select 1 from pg_class where relname = 'experiment_updated_idx') then
   create index experiment_updated_idx on experiment using btree (updated_at);
-end if;
-end$$;
-
-create table if not exists experiment_for_dataset (
-  experiment_for_dataset_id uuid not null primary key,
-  experiment_id uuid not null references experiment (experiment_id) on delete cascade on update restrict,
-  dataset_id uuid not null references dataset (dataset_id) on delete cascade on update restrict,
-  created_at timestamp with time zone not null default current_timestamp,
-  unique(experiment_id, dataset_id)
-);
-
-do $$
-begin
-if not exists (select 1 from pg_class where relname = 'experiment_for_dataset_experiment_idx') then
-  create index experiment_for_dataset_experiment_idx on experiment_for_dataset using btree (experiment_id);
-end if;
-end$$;
-
-do $$
-begin
-if not exists (select 1 from pg_class where relname = 'experiment_for_dataset_dataset_idx') then
-  create index experiment_for_dataset_dataset_idx on experiment_for_dataset using btree (dataset_id);
 end if;
 end$$;
 

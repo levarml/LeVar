@@ -106,4 +106,15 @@ object Format {
     }
     sb.toString
   }
+
+  def experimentRStoString(rs: ResultSet[Experiment]) = {
+    if (rs.noResults) {
+      "No matching experiments"
+    } else {
+      val exps = for (exp <- rs.items) yield { s"- ${exp.id}" }
+      exps.mkString("\n")
+    }
+  }
+
+  def experimentToString(experiment: Experiment) = experiment.id
 }
