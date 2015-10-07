@@ -151,10 +151,13 @@ package object json {
   implicit lazy val ExperimentFormat: Format[Experiment] = (
     (__ \ "id").format[String] and
     (__ \ "dataset_id").formatNullable[String] and
+    (__ \ "dataset_type").formatNullable[Dataset.DatasetType] and
     (__ \ "name").formatNullable[String] and
     (__ \ "created_at").formatNullable[DateTime] and
     (__ \ "updated_at").formatNullable[DateTime] and
     (__ \ "size").formatNullable[Int] and
+    (__ \ "dataset_size").formatNullable[Int] and
+    (__ \ "classification_results").formatNullable[Experiment.ClassificationResults] and
     (__ \ "labels").formatNullable[Seq[String]] and
     (__ \ "comments").formatNullable[ResultSet[Comment]]
   )(Experiment.apply _, unlift(Experiment.unapply))
@@ -174,4 +177,15 @@ package object json {
     (__ \ "id").formatNullable[String] and
     (__ \ "predictions").formatNullable[Seq[Prediction]]
   )(ExperimentUpdate.apply _, unlift(ExperimentUpdate.unapply))
+
+  implicit def Tuple3Format[A, B, C](implicit fmtA: Format[A], fmtB: Format[B], fmtC: Format[C]): Format[(A, B, C)] = (
+    __(0).format[A] and
+    __(1).format[B] and
+    __(2).format[C]
+  )(Tuple3.apply _, unlift(Tuple3.unapply))
+
+  implicit lazy val ExperimentClassificationResults: Format[Experiment.ClassificationResults] = (
+    (__ \ "labels").format[Seq[String]] and
+    (__ \ "class_counts").format[Seq[(String, String, Int)]]
+  )(Experiment.ClassificationResults.apply _, unlift(Experiment.ClassificationResults.unapply))
 }

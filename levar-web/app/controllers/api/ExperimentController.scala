@@ -135,5 +135,29 @@ object ExperimentController extends Controller with JsonLogging {
     }
   }
 
-  def delete(org: String, datasetId: String, id: String) = TODO
+  def delete(org: String, datasetId: String, experimentId: String) = Authenticated { implicit user =>
+    HasOrgAccess(user, org) {
+      Action { implicit request =>
+        infoU("status" -> "request", "action" -> "delete", "org" -> org, "dataset" -> datasetId, "experiment" -> experimentId)
+        try {
+          val savedBeforeDelete = dbase.getExperiment(org, datasetId, experimentId)
+          dbase.deleteExperiment(org, datasetId, experimentId)
+          infoU("status" -> "success", "action" -> "delete", "org" -> org, "dataset" -> datasetId, "experiment" -> experimentId)
+          render {
+            case AcceptsText() => Ok(Format.experimentToString(savedBeforeDelete) + "\n")
+            case Accepts.Html() => Ok(views.html.ExperimentApi.details(savedBeforeDelete))
+            case Accepts.Json() => Ok(Json.toJson(savedBeforeDelete))
+          }
+        } catch {
+          case _: NotFoundInDb => {
+            val msg = s"Experiment not found: $org/$datasetId/$experimentId"
+            render {
+              case AcceptsText() => NotFound(msg)
+              case Accepts.Json() => NotFound(Json.obj("message" -> msg))
+            }
+          }
+        }
+      }
+    }
+  }
 }

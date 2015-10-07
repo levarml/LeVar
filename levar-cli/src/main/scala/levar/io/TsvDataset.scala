@@ -23,6 +23,8 @@ object TsvDataset {
       headerSet.head
     }
 
+    val minRowSize = header.size
+
     if (header.indexWhere(_.equalsIgnoreCase("id")) >= 0) {
       throw new LevarDataError("Provided ID columns net yet supported")
     }
@@ -44,13 +46,15 @@ object TsvDataset {
     val buf = arrays.take(1000).toVector
     val dataFields = for ((f, i) <- header.zipWithIndex if i != valCol) yield {
       try {
-        buf.map(_(i).toDouble)
+        buf.map(_.padTo(minRowSize, "")).map(_(i).toDouble)
         (i, f, NumberField)
       } catch {
         case _: NumberFormatException => (i, f, StringField)
       }
     }
 
-    new TabularDataset(name, valCol, dtype, dataFields, buf.toIterator ++ arrays)
+    val dataIter = (buf.toIterator ++ arrays).map(_.padTo(minRowSize, ""))
+
+    new TabularDataset(name, valCol, dtype, dataFields, dataIter)
   }
 }

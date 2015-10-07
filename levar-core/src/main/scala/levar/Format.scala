@@ -10,18 +10,22 @@ object Format {
   def datetimefmt(d: DateTime): String =
     DateTimeFormat.forPattern("yyyy-MM-dd HH:mm").print(d.withZone(DateTimeZone.getDefault))
 
+  def datatsetRSnames(datasetRS: ResultSet[Dataset]): String = {
+    datasetRS.items.map(_.id).map { x => s"- $x" }.mkString("\n")
+  }
+
   def datasetRStoString(datasetRS: ResultSet[Dataset]): String = {
     if (datasetRS.nonEmpty) {
       val sb = new StringBuilder()
       sb ++=
-        """|Dataset                    | Updated    | Type       |    Items
-           |---------------------------|------------|------------|----------""".stripMargin
+        """|Dataset                              | Updated    | Type       |    Items
+           |-------------------------------------|------------|------------|----------""".stripMargin
       for (dataset <- datasetRS) {
         sb ++= "\n"
-        val displayName = if (dataset.id.size > 26) {
-          dataset.id.take(23) + "..."
+        val displayName = if (dataset.id.size > 36) {
+          dataset.id.take(33) + "..."
         } else {
-          dataset.id + (" " * (26 - dataset.id.size))
+          dataset.id + (" " * (36 - dataset.id.size))
         }
         val date = dataset.updatedAt match {
           case Some(d) => datefmt(d)
@@ -116,5 +120,30 @@ object Format {
     }
   }
 
-  def experimentToString(experiment: Experiment) = experiment.id
+  def experimentToString(experiment: Experiment) = {
+
+    val sb = new StringBuilder()
+    sb ++= s"Experiment:  ${experiment.id}"
+
+    experiment.datasetId foreach { ds =>
+      sb ++= s"\nDataset:       ${ds}"
+    }
+
+    experiment.datasetType foreach { dtype =>
+      sb ++= s"\nType:          ${dtype.name}"
+    }
+
+    experiment.size foreach { num =>
+      sb ++= s"\nPredictions:   $num"
+      experiment.datasetSize foreach { dsSize =>
+        if (dsSize == num) {
+          sb ++= " (full dataset coverage)"
+        } else {
+          sb ++= s" (of $dsSize)"
+        }
+      }
+    }
+
+    sb.toString
+  }
 }

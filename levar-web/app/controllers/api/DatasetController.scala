@@ -107,7 +107,8 @@ object DatasetController extends Controller with JsonLogging {
           { dsUpdate =>
             try {
               db.impl.updateDataset(org, id, dsUpdate)
-              val saved = db.impl.getDataset(org, id)
+              val lookupId = dsUpdate.id.getOrElse(id)
+              val saved = db.impl.getDataset(org, lookupId)
               render {
                 case AcceptsText() => Ok(Format.datasetToString(saved) + "\n")
                 case Accepts.Html() => Ok(views.html.DatasetApi.details(saved))

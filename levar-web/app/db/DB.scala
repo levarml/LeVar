@@ -142,7 +142,7 @@ trait Database {
    * @param path the path reference to include in the result set
    * @return a result set of datasets
    */
-  def searchDatasets(org: String, afterDate: Long): ResultSet[Dataset]
+  def listDatasets(org: String, afterDate: Long): ResultSet[Dataset]
 
   /**
    * Add a new dataset to the DB
@@ -181,24 +181,70 @@ trait Database {
   def deleteDataset(org: String, id: String)
 
   /**
-   * Search dataset data
+   * List dataset data
    *
    * @param org the org associated with the dataset
    * @param datasetId the dataset ID
    * @param after if applicable, data must follow this datum ID
    * @param max if applicatble, number of rows to return
+   * @return a result set of data
    */
-  def searchData(org: String, datasetId: String, after: Option[String] = None, max: Option[Int] = None, withValue: Boolean): ResultSet[Datum]
+  def listData(org: String, datasetId: String, after: Option[String] = None, max: Option[Int] = None, withValue: Boolean): ResultSet[Datum]
 
-  def searchExperiments(org: String): ResultSet[Experiment]
+  /**
+   * List all experiments in an organization
+   *
+   * @param org the organization ID
+   * @return a result set of experiments
+   */
+  def listExperiments(org: String): ResultSet[Experiment]
 
-  def searchExperiments(org: String, datasetId: String): ResultSet[Experiment]
+  /**
+   * List experiments associated with a dataset
+   *
+   * @param org the organzation ID
+   * @param datasetId the dataset ID
+   * @return a result set of experiments
+   */
+  def listExperiments(org: String, datasetId: String): ResultSet[Experiment]
 
+  /**
+   * Add an experiment to the DB
+   *
+   * @param org the ID of the org to identify the associated dataset
+   * @param datasetId the ID of the associated dataset
+   * @param experiment the experiment object to add to the DB
+   */
   def createExperiment(org: String, datasetId: String, experiment: Experiment)
 
+  /**
+   * Get an experiment out of the DB
+   *
+   * @param org the ID of the associated organization
+   * @param datasetId the ID of the associated dataset
+   * @param experimentId the experiment ID
+   * @return an experiment object with results embedded, if aplicatble
+   */
   def getExperiment(org: String, datasetId: String, experimentId: String): Experiment
 
+  /**
+   * Update an experiment
+   *
+   * @param org the ID of the associated organization
+   * @param datasetId the ID of the associated dataset
+   * @param experimentId the experiment ID
+   * @param updates the updates to apply to the experiment
+   */
   def updateExperiment(org: String, datasetId: String, experimentId: String, updates: Experiment.Update)
+
+  /**
+   * Delete an experiment
+   *
+   * @param org the ID of the associated organization
+   * @param datasetId the ID of the associated dataset
+   * @param experimentId the experiment ID
+   */
+  def deleteExperiment(org: String, datasetId: String, experimentId: String)
 }
 
 /**
@@ -572,7 +618,7 @@ object impl extends Database with JsonLogging {
     }
   }
 
-  def searchDatasets(org: String, afterDate: Long = 32503680000L) = DB.readOnly { implicit session =>
+  def listDatasets(org: String, afterDate: Long = 32503680000L) = DB.readOnly { implicit session =>
     val datasets = sql"""
           select
           dataset.provided_id dataset_ident,
@@ -800,7 +846,7 @@ object impl extends Database with JsonLogging {
     }
   }
 
-  def searchData(org: String, datasetId: String, after: Option[String] = None, max: Option[Int] = None, withVal: Boolean = false) = DB.readOnly { implicit session =>
+  def listData(org: String, datasetId: String, after: Option[String] = None, max: Option[Int] = None, withVal: Boolean = false) = DB.readOnly { implicit session =>
     info("status" -> "starting", "action" -> "search_data", "org" -> org, "dataset_id" -> datasetId)
     val datasetDetails = sql"""
         select dataset.dataset_id d_id, count(datum.datum_id) total_count
@@ -842,7 +888,7 @@ object impl extends Database with JsonLogging {
     ResultSet(datumQ, total = Some(totalCount))
   }
 
-  def searchExperiments(org: String): ResultSet[Experiment] = DB.readOnly { implicit session =>
+  def listExperiments(org: String): ResultSet[Experiment] = DB.readOnly { implicit session =>
     info("status" -> "starting", "action" -> "search_data", "org" -> org)
     val experiments = sql"""
         select distinct experiment.provided_id exp_id, dataset.provided_id dataset_id
@@ -856,7 +902,7 @@ object impl extends Database with JsonLogging {
     ResultSet(experiments)
   }
 
-  def searchExperiments(org: String, datasetId: String): ResultSet[Experiment] = DB.readOnly { implicit session =>
+  def listExperiments(org: String, datasetId: String): ResultSet[Experiment] = DB.readOnly { implicit session =>
     info("status" -> "starting", "action" -> "search_data", "org" -> org)
     val experiments = sql"""
         select distinct experiment.provided_id exp_id, dataset.provided_id dataset_id
@@ -911,33 +957,62 @@ object impl extends Database with JsonLogging {
     info("status" -> "starting", "action" -> "get_experiment", "org" -> org, "dataset" -> datasetId, "experiment" -> experimentId)
     val experimentOpt = sql"""
         select
+          experiment.experiment_id::text exp_uuid,
+          dataset.dataset_id::text data_uuid,
           experiment.provided_id exp_id,
           dataset.provided_id data_id,
+          dataset.dataset_type::text dataset_type,
           extract(epoch from experiment.created_at) e_created_at,
           extract(epoch from experiment.updated_at) e_updated_at,
-          count (prediction.prediction_id) num_predictions
+          count (prediction.prediction_id) num_predictions,
+          count (datum.datum_id) dataset_size
         from experiment
           inner join dataset on experiment.dataset_id = dataset.dataset_id
           inner join org on dataset.org_id = org.org_id
           left join prediction on prediction.experiment_id = experiment.experiment_id
+          left join datum on datum.dataset_id = dataset.dataset_id
         where experiment.provided_id = ${experimentId}
           and org.provided_id = ${org}
           and dataset.provided_id = ${datasetId}
-        group by exp_id, data_id, e_created_at, e_updated_at"""
+        group by exp_uuid, data_uuid, exp_id, data_id, dataset_type, e_created_at, e_updated_at"""
       .map { rs =>
-        Experiment(
-          rs.string("exp_id"),
-          datasetId = Some(rs.string("data_id")),
-          createdAt = Some(jodaFromEpoch(rs.double("e_created_at"))),
-          updatedAt = Some(jodaFromEpoch(rs.double("e_updated_at"))))
+        val experiment =
+          Experiment(
+            rs.string("exp_id"),
+            datasetId = Some(rs.string("data_id")),
+            createdAt = Some(jodaFromEpoch(rs.double("e_created_at"))),
+            updatedAt = Some(jodaFromEpoch(rs.double("e_updated_at"))),
+            datasetType = Some(datasetType(rs.string("dataset_type"))),
+            size = Some(rs.int("num_predictions")),
+            datasetSize = Some(rs.int("dataset_size")))
+        (rs.string("exp_uuid"), rs.string("data_uuid"), experiment)
       }
       .single
       .apply()
 
     experimentOpt match {
-      case Some(experiment) => {
+      case Some((experimentUuid, datasetUuid, experiment)) => {
         info("status" -> "success", "action" -> "get_experiment", "org" -> org, "dataset" -> datasetId, "experiment" -> experimentId)
-        experiment
+
+        if (experiment.datasetType == Some(Dataset.ClassificationType)) {
+          val classes = sql"""select distinct cvalue from datum where dataset_id = ${datasetUuid}::uuid"""
+            .map(_.string("cvalue"))
+            .list
+            .apply()
+
+          val classCounts = sql"""
+              select datum.cvalue gold_cls, prediction.cvalue pred_cls, count(1) num
+              from datum inner join prediction on prediction.datum_id = datum.datum_id
+              where prediction.experiment_id = ${experimentUuid}::uuid
+              group by gold_cls, pred_cls"""
+            .map { rs => (rs.string("gold_cls"), rs.string("pred_cls"), rs.int("num")) }
+            .list
+            .apply()
+
+          experiment.copy(classificationResults = Some(Experiment.ClassificationResults(classes, classCounts)))
+        } else {
+          experiment
+        }
       }
       case None => {
         throw new NotFoundInDb
@@ -1035,6 +1110,34 @@ object impl extends Database with JsonLogging {
       info("status" -> "success", "action" -> "update_experiment", "org" -> org, "dataset" -> datasetId, "experiment" -> experimentId)
     } catch {
       case e: java.sql.BatchUpdateException => throw e.getNextException
+    }
+  }
+
+  def deleteExperiment(org: String, datasetId: String, experimentId: String) = {
+    info("status" -> "starting", "action" -> "delete_dataset", "org" -> org, "dataset" -> datasetId, "experiment" -> experimentId)
+    val delIds = DB.localTx { implicit session =>
+      sql"""
+          delete from experiment where experiment_id in (
+            select experiment.experiment_id
+            from experiment
+              inner join dataset on experiment.dataset_id = dataset.dataset_id
+              inner join org on dataset.org_id = org.org_id
+            where org.provided_id = ${org}
+              and dataset.provided_id = ${datasetId}
+              and experiment.provided_id = ${experimentId})
+          returning provided_id
+          """
+        .map(_.string("provided_id"))
+        .list
+        .apply()
+    }
+    if (delIds.isEmpty) {
+      throw new NotFoundInDb()
+    } else if (delIds != List(experimentId)) {
+      val msg = s"unexpected experiments deleted matching $org/$datasetId/$experimentId: ${delIds.mkString(", ")}"
+      throw new UnexpectedResultException(msg)
+    } else {
+      info("status" -> "success", "action" -> "delete_experiment", "org" -> org, "dataset_id" -> datasetId, "experiment_id" -> experimentId)
     }
   }
 }

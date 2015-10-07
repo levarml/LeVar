@@ -164,6 +164,10 @@ class LevarClient(val config: ClientConfig) {
     delete(s"/api/$org/$id")
   }
 
+  def renameDataset(org: String, id: String, newId: String): Future[Unit] = {
+    post[Dataset.Update](s"/api/$org/$id/update", Dataset.Update(id = Some(newId)))
+  }
+
   def fetchData(org: String, datasetId: String, includeGold: Boolean): Future[ResultSet[Datum]] = {
     val g = if (includeGold) "1" else "0"
     get[ResultSet[Datum]](s"/api/$org/$datasetId/data?gold=$g")
@@ -193,5 +197,9 @@ class LevarClient(val config: ClientConfig) {
 
   def getExperiment(org: String, datasetId: String, experimentId: String): Future[Experiment] = {
     get[Experiment](s"/api/$org/$datasetId/$experimentId")
+  }
+
+  def deleteExperiment(org: String, datasetId: String, experimentId: String): Future[Unit] = {
+    delete(s"/api/$org/$datasetId/$experimentId")
   }
 }
