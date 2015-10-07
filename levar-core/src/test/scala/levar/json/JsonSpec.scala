@@ -701,6 +701,23 @@ class JsonSpec extends FlatSpec {
          |""".stripMargin)
   }
 
+  it should "handle classification results" in {
+    val results =
+      Experiment.ClassificationResults(Seq("yes", "no"), Seq(("yes", "yes", 1), ("no", "yes", 2)))
+    val experimentExp = Experiment("hello-world", classificationResults = Some(results))
+    val jsonString =
+      """|{
+         |  "id": "hello-world",
+         |  "classification_results": {
+         |    "labels": ["yes", "no"],
+         |    "class_counts": [["yes", "yes", 1], ["no", "yes", 2]]
+         |  }
+         |}""".stripMargin
+    val experimentAct = Json.parse(jsonString).as[Experiment]
+    assert(results.classes.toSet == experimentAct.classificationResults.get.classes.toSet)
+    assert(results.classCounts.toSet == experimentAct.classificationResults.get.classCounts.toSet)
+  }
+
   "Prediction JSON serialization" should "handle categorical predictions" in {
     assertWrites("""{"data_id": "123456","value": "yes"}""", Prediction("123456", Right("yes")))
   }
