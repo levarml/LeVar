@@ -20,7 +20,7 @@ object DatumController extends Controller with JsonLogging {
     HasOrgAccess(user, org) {
       Action { implicit request =>
         try {
-          val results = dbase.searchData(org, datasetId, after, withVal = gold == Some(1))
+          val results = dbase.listData(org, datasetId, after, withVal = gold == Some(1))
           ResultSet(Seq.empty[Datum])
           render {
             case AcceptsText() => Ok(Format.datumRStoString(results) + "\n")

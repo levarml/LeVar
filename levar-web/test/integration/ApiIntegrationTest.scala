@@ -100,10 +100,10 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
     }
   }
 
-  "GET /api/test-org/dataset/ds1" must {
+  "GET /api/test-org/ds1" must {
     "send back a 401 if no credentials provided" in {
       running(new TestServer(3333, new FakeApplication())) {
-        val response = await { WS.url("http://localhost:3333/api/test-org/dataset/ds1").get() }
+        val response = await { WS.url("http://localhost:3333/api/test-org/ds1").get() }
         assert(response.status == 401)
       }
     }
@@ -112,7 +112,7 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
       console.createUser("test-user", "test-pass")
       running(new TestServer(3333, new FakeApplication())) {
         val response = await {
-          WS.url("http://localhost:3333/api/test-org/dataset/ds1")
+          WS.url("http://localhost:3333/api/test-org/ds1")
             .withAuth("test-user", "test-pass", BASIC)
             .get()
         }
@@ -124,7 +124,7 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
       setupTestUser()
       running(new TestServer(3333, new FakeApplication())) {
         val response = await {
-          WS.url("http://localhost:3333/api/test-org/dataset/ds1")
+          WS.url("http://localhost:3333/api/test-org/ds1")
             .withAuth("test-user", "test-pass", BASIC)
             .get()
         }
@@ -138,7 +138,7 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
         Dataset("ds1", ClassificationType, DataValidator("text" -> StringField)))
       running(new TestServer(3333, new FakeApplication())) {
         val response = await {
-          WS.url("http://localhost:3333/api/test-org/dataset/ds1")
+          WS.url("http://localhost:3333/api/test-org/ds1")
             .withHeaders("Accept" -> "application/json")
             .withAuth("test-user", "test-pass", BASIC)
             .get()
@@ -163,7 +163,7 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
   "POST /api/test-org/datset" must {
     "send back a 401 if no credentials provided" in {
       running(new TestServer(3333, new FakeApplication())) {
-        val response = await { WS.url("http://localhost:3333/api/test-org/dataset").post("") }
+        val response = await { WS.url("http://localhost:3333/api/test-org/new_dataset").post("") }
         assert(response.status == 401)
       }
     }
@@ -172,7 +172,7 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
       console.createUser("test-user", "test-pass")
       running(new TestServer(3333, new FakeApplication())) {
         val response = await {
-          WS.url("http://localhost:3333/api/test-org/dataset")
+          WS.url("http://localhost:3333/api/test-org/new_dataset")
             .withAuth("test-user", "test-pass", BASIC)
             .post("")
         }
@@ -185,7 +185,7 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
       setupTestUser()
       running(new TestServer(3333, new FakeApplication())) {
         val response = await {
-          WS.url("http://localhost:3333/api/test-org/dataset")
+          WS.url("http://localhost:3333/api/test-org/new_dataset")
             .withHeaders("Accept" -> "application/json")
             .withAuth("test-user", "test-pass", BASIC)
             .post(toJson(ds1))
@@ -220,7 +220,7 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
       setupTestUser()
       running(new TestServer(3333, new FakeApplication())) {
         val response = await {
-          WS.url("http://localhost:3333/api/test-org/dataset")
+          WS.url("http://localhost:3333/api/test-org/new_dataset")
             .withHeaders("Accept" -> "application/json")
             .withAuth("test-user", "test-pass", BASIC)
             .post(ds1)
@@ -239,7 +239,7 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
       Thread.sleep(100)
       running(new TestServer(3333, new FakeApplication())) {
         val response = await {
-          WS.url("http://localhost:3333/api/test-org/dataset/ds1")
+          WS.url("http://localhost:3333/api/test-org/ds1/update")
             .withHeaders(
               "Accept" -> "application/json",
               "Content-type" -> "application/json")
@@ -277,7 +277,7 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
       val u1 = Dataset.Update(id = Some("ds2"))
       running(new TestServer(3333, new FakeApplication())) {
         val response = await {
-          WS.url("http://localhost:3333/api/test-org/dataset/ds1")
+          WS.url("http://localhost:3333/api/test-org/ds1/update")
             .withHeaders(
               "Accept" -> "application/json",
               "Content-type" -> "application/json")

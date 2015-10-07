@@ -587,10 +587,10 @@ class JsonSpec extends FlatSpec {
       Experiment("hello-world"))
   }
 
-  it should "handle datasetIds" in {
+  it should "handle datasetId" in {
     assertWrites(
-      """{"id": "hello-world", "dataset_ids": ["foo", "bar", "baz"]}""",
-      Experiment("hello-world", datasetIds = Some(Seq("foo", "bar", "baz"))))
+      """{"id": "hello-world", "dataset_id": "foo"}""",
+      Experiment("hello-world", datasetId = Some("foo")))
   }
 
   it should "handle name" in {
@@ -649,8 +649,8 @@ class JsonSpec extends FlatSpec {
 
   it should "handle datasetIds" in {
     assertReads(
-      Experiment("hello-world", datasetIds = Some(Seq("foo", "bar", "baz"))),
-      """{"id": "hello-world", "dataset_ids": ["foo", "bar", "baz"]}""")
+      Experiment("hello-world", datasetId = Some("foo")),
+      """{"id": "hello-world", "dataset_id": "foo"}""")
   }
 
   it should "handle name" in {
@@ -702,46 +702,41 @@ class JsonSpec extends FlatSpec {
   }
 
   "Prediction JSON serialization" should "handle categorical predictions" in {
-    assertWrites("""{"value": "yes"}""", Prediction(Right("yes")))
+    assertWrites("""{"data_id": "123456","value": "yes"}""", Prediction("123456", Right("yes")))
   }
 
   it should "handle real valued predictions" in {
-    assertWrites("""{"value": 0.456}""", Prediction(Left(0.456)))
+    assertWrites("""{"data_id": "123456","value": 0.456}""", Prediction("123456", Left(0.456)))
   }
 
   it should "handle inputs" in {
     assertWrites(
-      """{"inputs": {"data": {"text": "Yo"}}, "value": 0.456}""",
-      Prediction(Left(0.456), datum = Some(Datum(Json.obj("text" -> "Yo")))))
-  }
-
-  it should "handle data_id" in {
-    assertWrites(
-      """{"data_id": "item-123", "value": "yes"}""",
-      Prediction(Right("yes"), datumId = Some("item-123")))
+      """{"data_id": "123456", "inputs": {"data": {"text": "Yo"}}, "value": 0.456}""",
+      Prediction("123456", Left(0.456), datum = Some(Datum(Json.obj("text" -> "Yo")))))
   }
 
   it should "handle score" in {
     assertWrites(
-      """{"value": 0.234, "score": 0.998}""",
-      Prediction(Left(0.234), score = Some(0.998)))
+      """{"data_id": "123456", "value": 0.234, "score": 0.998}""",
+      Prediction("123456", Left(0.234), score = Some(0.998)))
   }
 
   it should "handle createdAt" in {
     assertWrites(
-      """{"value": "yes", "created_at": "2005-03-26T12:00:00.000Z"}""",
-      Prediction(Right("yes"), createdAt = Some(new DateTime(2005, 3, 26, 12, 0, 0, 0, UTC))))
+      """{"data_id": "123456", "value": "yes", "created_at": "2005-03-26T12:00:00.000Z"}""",
+      Prediction("123456", Right("yes"), createdAt = Some(new DateTime(2005, 3, 26, 12, 0, 0, 0, UTC))))
   }
 
   it should "handle labels" in {
     assertWrites(
-      """{"value": "yes", "labels": ["big", "data"]}""",
-      Prediction(Right("yes"), labels = Some(Seq("big", "data"))))
+      """{"data_id": "123456", "value": "yes", "labels": ["big", "data"]}""",
+      Prediction("123456", Right("yes"), labels = Some(Seq("big", "data"))))
   }
 
   it should "handle comments" in {
     assertWrites(
       """|{
+         |  "data_id": "123456",
          |  "value": "yes",
          |  "comments": {
          |    "items": [
@@ -752,6 +747,7 @@ class JsonSpec extends FlatSpec {
          |}
          |""".stripMargin,
       Prediction(
+        "123456",
         Right("yes"),
         comments = Some(ResultSet(
           Seq(Comment("john", "yo"), Comment("mary", "lo"))))))
@@ -759,50 +755,46 @@ class JsonSpec extends FlatSpec {
   }
 
   "Prediction JSON deserialization" should "handle categorical predictions" in {
-    assertReads(Prediction(Right("yes")), """{"value": "yes"}""")
+    assertReads(Prediction("123456", Right("yes")), """{"data_id": "123456","value": "yes"}""")
   }
 
   it should "handle real valued predictions" in {
-    assertReads(Prediction(Left(0.456)), """{"value": 0.456}""")
+    assertReads(Prediction("123456", Left(0.456)), """{"data_id": "123456","value": 0.456}""")
   }
 
   it should "handle inputs" in {
     assertReads(
-      Prediction(Left(0.456), datum = Some(Datum(Json.obj("text" -> "Yo")))),
-      """{"inputs": {"data": {"text": "Yo"}}, "value": 0.456}""")
-  }
-
-  it should "handle data_id" in {
-    assertReads(
-      Prediction(Right("yes"), datumId = Some("item-123")),
-      """{"data_id": "item-123", "value": "yes"}""")
+      Prediction("123456", Left(0.456), datum = Some(Datum(Json.obj("text" -> "Yo")))),
+      """{"data_id": "123456","inputs": {"data": {"text": "Yo"}}, "value": 0.456}""")
   }
 
   it should "handle score" in {
     assertReads(
-      Prediction(Left(0.234), score = Some(0.998)),
-      """{"value": 0.234, "score": 0.998}""")
+      Prediction("123456", Left(0.234), score = Some(0.998)),
+      """{"data_id": "123456","value": 0.234, "score": 0.998}""")
   }
 
   it should "handle createdAt" in {
     assertReads(
-      Prediction(Right("yes"), createdAt = Some(new DateTime(2005, 3, 26, 12, 0, 0, 0, UTC))),
-      """{"value": "yes", "created_at": "2005-03-26T12:00:00.000Z"}""")
+      Prediction("123456", Right("yes"), createdAt = Some(new DateTime(2005, 3, 26, 12, 0, 0, 0, UTC))),
+      """{"data_id": "123456","value": "yes", "created_at": "2005-03-26T12:00:00.000Z"}""")
   }
 
   it should "handle labels" in {
     assertReads(
-      Prediction(Right("yes"), labels = Some(Seq("big", "data"))),
-      """{"value": "yes", "labels": ["big", "data"]}""")
+      Prediction("123456", Right("yes"), labels = Some(Seq("big", "data"))),
+      """{"data_id": "123456","value": "yes", "labels": ["big", "data"]}""")
   }
 
   it should "handle comments" in {
     assertReads(
       Prediction(
+        "123456",
         Right("yes"),
         comments = Some(ResultSet(
           Seq(Comment("john", "yo"), Comment("mary", "lo"))))),
       """|{
+         |  "data_id": "123456",
          |  "value": "yes",
          |  "comments": {
          |    "items": [

@@ -17,7 +17,7 @@ object DatasetController extends Controller with JsonLogging {
       Action { implicit request =>
         infoU("status" -> "request", "action" -> "search_for_datasets")
         val path = routes.DatasetController.search(org).toString
-        val results = db.impl.searchDatasets(org).copy(path = Some(path))
+        val results = db.impl.listDatasets(org).copy(path = Some(path))
         infoU("status" -> "response", "action" -> "search_for_datasets", "result" -> s"${results.size} results")
         render {
           case AcceptsText() => Ok(Format.datasetRStoString(results) + "\n")
@@ -109,14 +109,24 @@ object DatasetController extends Controller with JsonLogging {
               db.impl.updateDataset(org, id, dsUpdate)
               val lookupId = dsUpdate.id.getOrElse(id)
               val saved = db.impl.getDataset(org, lookupId)
+              infoU("status" -> "success", "action" -> "update", "dataset" -> id)
               render {
                 case AcceptsText() => Ok(Format.datasetToString(saved) + "\n")
                 case Accepts.Html() => Ok(views.html.DatasetApi.details(saved))
                 case Accepts.Json() => Ok(Json.toJson(saved))
               }
             } catch {
+              case _: DatasetIdAlreadyExists => {
+                val msg = s"dataset ID ${dsUpdate.id.getOrElse("<?>")} already exists"
+                infoU("status" -> "error", "action" -> "update", "message" -> msg)
+                render {
+                  case AcceptsText() => BadRequest(msg)
+                  case Accepts.Json() => BadRequest(Json.obj("message" -> msg))
+                }
+              }
               case _: NotFoundInDb => {
                 val msg = s"Dataset not found: $id"
+                infoU("status" -> "error", "action" -> "update", "message" -> msg)
                 render {
                   case AcceptsText() => NotFound(msg)
                   case Accepts.Json() => NotFound(Json.obj("message" -> msg))

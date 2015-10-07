@@ -403,7 +403,8 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
     setupOrg1()
     info("adding dataset ds1")
     val ds = Dataset("ds1", ClassificationType, basicSchema)
-    val fetched = db.impl.createDataset("org1", ds)
+    db.impl.createDataset("org1", ds)
+    val fetched = db.impl.getDataset("org1", "ds1")
     info("checking returned dataset = ds1")
     assert(fetched.id == ds.id)
     assert(fetched.dtype == ds.dtype)
@@ -433,8 +434,10 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
     setupOrg1()
     info("adding dataset ds1")
     val ds = Dataset("ds1", ClassificationType, basicSchema)
-    val fetchedOnCreate = db.impl.createDataset("org1", ds)
-    val fetchedOnAsk = db.impl.getDataset("org1", ds.id)
-    assert(fetchedOnCreate == fetchedOnAsk)
+    db.impl.createDataset("org1", ds)
+    val fetchedOnCreate = db.impl.getDataset("org1", ds.id)
+    assert(fetchedOnCreate.id == ds.id)
+    assert(fetchedOnCreate.dtype == ds.dtype)
+    assert(fetchedOnCreate.schema == ds.schema)
   }
 }

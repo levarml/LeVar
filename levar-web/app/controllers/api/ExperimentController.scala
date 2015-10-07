@@ -18,7 +18,7 @@ object ExperimentController extends Controller with JsonLogging {
   def searchByOrg(org: String) = Authenticated { user =>
     HasOrgAccess(user, org) {
       Action { implicit request =>
-        val results = dbase.searchExperiments(org)
+        val results = dbase.listExperiments(org)
         render {
           case AcceptsText() => Ok(Format.experimentRStoString(results) + "\n")
           case Accepts.Html() => Ok(views.html.ExperimentApi.search(results))
@@ -32,7 +32,7 @@ object ExperimentController extends Controller with JsonLogging {
     HasOrgAccess(user, org) {
       Action { implicit request =>
         try {
-          val results = dbase.searchExperiments(org, datasetId)
+          val results = dbase.listExperiments(org, datasetId)
           render {
             case AcceptsText() => Ok(Format.experimentRStoString(results) + "\n")
             case Accepts.Html() => Ok(views.html.ExperimentApi.search(results))
