@@ -210,7 +210,7 @@ end$$;
 create table if not exists job (
   job_id uuid not null primary key default uuid_generate_v1mc(),
   name text not null,
-  org_id uuid not null references org (org_id) on delete cascade on update restrict,
+  dataset_id uuid not null references dataset (dataset_id) on delete cascade on update restrict,
   api_url text not null,
   api_auth text,
   request_type char not null,
@@ -219,13 +219,13 @@ create table if not exists job (
   run_period char not null,
   created_at timestamp with time zone not null default current_timestamp,
   updated_at timestamp with time zone not null default current_timestamp,
-  unique(org_id, name)
+  unique(dataset_id, name)
 );
 
 do $$
 begin
-if not exists (select 1 from pg_class where relname = 'job_org_idx') then
-  create index job_org_idx on job using btree (org_id);
+if not exists (select 1 from pg_class where relname = 'job_dataset_idx') then
+  create index job_dataset_idx on job using btree (dataset_id);
 end if;
 end$$;
 
@@ -247,28 +247,6 @@ do $$
 begin
 if not exists (select 1 from pg_class where relname = 'job_updated_at_idx') then
   create index job_updated_at_idx on job using btree (updated_at);
-end if;
-end$$;
-
-create table if not exists job_dataset (
-  job_dataset_id uuid not null primary key default uuid_generate_v1mc(),
-  job_id uuid not null references job (job_id) on delete cascade on update restrict,
-  dataset_id uuid not null references dataset (dataset_id) on delete cascade on update restrict,
-  created_at timestamp with time zone not null default current_timestamp,
-  unique (job_id, dataset_id)
-);
-
-do $$
-begin
-if not exists (select 1 from pg_class where relname = 'job_dataset_job_idx') then
-  create index job_dataset_job_idx on job_dataset using btree (job_id);
-end if;
-end$$;
-
-do $$
-begin
-if not exists (select 1 from pg_class where relname = 'job_dataset_dataset_idx') then
-  create index job_dataset_dataset_idx on job_dataset using btree (dataset_id);
 end if;
 end$$;
 
