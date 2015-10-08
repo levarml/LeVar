@@ -323,10 +323,13 @@ object LevarCli {
             val datasetRS = Await.result(client.searchDatasets(org), 10 seconds)
             if (datasetRS.nonEmpty) {
               println(s"Datasets for $org")
+              println
               if (args.listCmd.datasetsCmd.namesOnly())
                 println(Format.datatsetRSnames(datasetRS))
               else
                 println(Format.datasetRStoString(datasetRS))
+
+              println
             } else {
               println(s"No datasets for $org")
             }
@@ -362,6 +365,7 @@ object LevarCli {
               }
               val saved = Await.result(client.getDataset(org, name), 10 seconds)
               println(Format.datasetToString(saved))
+              println
             } catch {
               case e: ConnectionError => {
                 Console.err.println("Could not upload datset")
@@ -393,6 +397,7 @@ object LevarCli {
           try {
             val dataset = Await.result(client.getDataset(Some(org), datasetId), 10 seconds)
             println(Format.datasetToString(dataset))
+            println
           } catch {
             case e: ConnectionError if e.getMessage.startsWith("404") => {
               Console.err.println(s"Dataset not found: $org/$datasetId")
@@ -442,6 +447,7 @@ object LevarCli {
               }
             }
             println(Format.datasetToString(dataset))
+            println
           } finally {
             src.close()
           }
@@ -544,13 +550,17 @@ object LevarCli {
                     sys.exit(1)
                   }
                 }
+                println(s"Experiments for dataset $datasetOrg/$datasetId")
                 Await.result(client.searchExperiments(org, datasetId), 10 seconds)
               }
               case None => {
+                println(s"Experiments for organization $org")
                 Await.result(client.searchExperiments(org), 10 seconds)
               }
             }
+            println
             println(Format.experimentRStoString(experimentRS))
+            println
 
           } catch {
             case e: ConnectionError => {

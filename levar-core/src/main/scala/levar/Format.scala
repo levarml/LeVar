@@ -17,16 +17,17 @@ object Format {
   def datasetRStoString(datasetRS: ResultSet[Dataset]): String = {
     if (datasetRS.nonEmpty) {
       val sb = new StringBuilder()
-      sb ++=
-        """|Dataset                              | Updated    | Type       |    Items
-           |-------------------------------------|------------|------------|----------""".stripMargin
+      val dsNameLen = (Seq(15) ++ datasetRS.items.map(_.id.size)).max
+      sb ++= " Dataset"
+      sb ++= " " * (dsNameLen - 7)
+      sb ++= " | Updated    | Type       |    Items"
+      sb ++= "\n-"
+      sb ++= "-" * dsNameLen
+      sb ++= "-|------------|------------|----------"
       for (dataset <- datasetRS) {
-        sb ++= "\n"
-        val displayName = if (dataset.id.size > 36) {
-          dataset.id.take(33) + "..."
-        } else {
-          dataset.id + (" " * (36 - dataset.id.size))
-        }
+        sb ++= "\n "
+        sb ++= dataset.id
+        sb ++= " " * (dsNameLen - dataset.id.size)
         val date = dataset.updatedAt match {
           case Some(d) => datefmt(d)
           case None => " " * 10
@@ -39,7 +40,7 @@ object Format {
           t + (" " * (10 - t.size))
         }
         val n = dataset.size.getOrElse(0)
-        sb ++= f"$displayName | $date | $dtype | $n%8d"
+        sb ++= f" | $date | $dtype | $n%8d"
       }
       sb.toString
     } else {
@@ -115,8 +116,61 @@ object Format {
     if (rs.noResults) {
       "No matching experiments"
     } else {
-      val exps = for (exp <- rs.items) yield { s"- ${exp.id}" }
-      exps.mkString("\n")
+      val sb = new StringBuilder()
+      if (rs.items.map(_.datasetType).forall(_ == Some(Dataset.RegressionType))) {
+        val nameLen = (Seq(14) ++ rs.items.map(_.id.size)).max
+        sb ++= " Experiments"
+        sb ++= " " * (nameLen - "Experiments".size)
+        sb ++= " | Updated    | Predictions |     RMSE"
+        sb ++= "\n"
+        sb ++= "-"
+        sb ++= "-" * nameLen
+        sb ++= "-|------------|-------------|----------"
+        for (experiment <- rs.items) {
+          sb ++= "\n "
+          sb ++= experiment.id
+          sb ++= " " * (nameLen - experiment.id.size)
+          sb ++= " | "
+          sb ++= experiment.updatedAt.map(datefmt).getOrElse("N/A")
+          sb ++= " | "
+          val numPred = experiment.size.map(_.toString).getOrElse("N/A")
+          sb ++= " " * (11 - numPred.size)
+          sb ++= numPred
+          sb ++= " | "
+          val rmse = experiment.regressionResults.map(r => f"${r.rmse}%.2f").getOrElse("N/A")
+          sb ++= " " * (8 - rmse.size)
+          sb ++= rmse
+        }
+      } else if (rs.items.map(_.datasetType).forall(_ == Some(Dataset.ClassificationType))) {
+        val nameLen = (Seq(14) ++ rs.items.map(_.id.size)).max
+        sb ++= " Experiments"
+        sb ++= " " * (nameLen - "Experiments".size)
+        sb ++= " | Updated    | Predictions |   Acc"
+        sb ++= "\n"
+        sb ++= "-"
+        sb ++= "-" * nameLen
+        sb ++= "-|------------|-------------|-------"
+        for (experiment <- rs.items) {
+          sb ++= "\n "
+          sb ++= experiment.id
+          sb ++= " " * (nameLen - experiment.id.size)
+          sb ++= " | "
+          sb ++= experiment.updatedAt.map(datefmt).getOrElse("N/A")
+          sb ++= " | "
+          val numPred = experiment.size.map(_.toString).getOrElse("N/A")
+          sb ++= " " * (11 - numPred.size)
+          sb ++= numPred
+          sb ++= " | "
+          val acc = experiment.classificationResults.map(_.overallAccuracy).map(n => f"${100 * n}%5.1f").getOrElse("  N/A")
+          sb ++= acc
+        }
+      } else if (rs.items.map(_.datasetType).forall(_ == None)) {
+        "none of them have a type!"
+      } else {
+        val exps = for (exp <- rs.items) yield { s"- ${exp.id}" }
+        sb ++= exps.mkString("\n")
+      }
+      sb.toString
     }
   }
 

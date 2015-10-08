@@ -179,7 +179,10 @@ class LevarClient(val config: ClientConfig) {
   }
 
   def searchExperiments(org: String, datasetId: String): Future[ResultSet[Experiment]] = {
-    get[ResultSet[Experiment]](s"/api/$org/$datasetId/experiments")
+    get[ResultSet[Experiment]](s"/api/$org/$datasetId/experiments") flatMap { rs =>
+      val futures = rs.items.map(ds => getExperiment(org, datasetId, ds.id))
+      Future.sequence(futures).map { datasets => rs.copy(items = datasets) }
+    }
   }
 
   def searchExperiments(org: String): Future[ResultSet[Experiment]] = {
