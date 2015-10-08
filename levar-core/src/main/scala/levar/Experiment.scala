@@ -25,6 +25,7 @@ case class Experiment(
     size: Option[Int] = None,
     datasetSize: Option[Int] = None,
     classificationResults: Option[Experiment.ClassificationResults] = None,
+    regressionResults: Option[Experiment.RegressionResults] = None,
     labels: Option[Seq[String]] = None,
     comments: Option[ResultSet[Comment]] = None) {
 
@@ -64,4 +65,11 @@ object Experiment {
       2 * p * r / (p + r)
     }
   }
+
+  case class RegressionResults(
+    rmse: Double,
+    meanAbsErr: Double,
+    medianAbsErr: Double,
+    p10AbsErr: Double,
+    p90AbsErr: Double)
 }

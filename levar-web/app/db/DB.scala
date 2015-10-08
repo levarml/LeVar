@@ -963,18 +963,13 @@ object impl extends Database with JsonLogging {
           dataset.provided_id data_id,
           dataset.dataset_type::text dataset_type,
           extract(epoch from experiment.created_at) e_created_at,
-          extract(epoch from experiment.updated_at) e_updated_at,
-          count (prediction.prediction_id) num_predictions,
-          count (datum.datum_id) dataset_size
+          extract(epoch from experiment.updated_at) e_updated_at
         from experiment
           inner join dataset on experiment.dataset_id = dataset.dataset_id
           inner join org on dataset.org_id = org.org_id
-          left join prediction on prediction.experiment_id = experiment.experiment_id
-          left join datum on datum.dataset_id = dataset.dataset_id
         where experiment.provided_id = ${experimentId}
           and org.provided_id = ${org}
-          and dataset.provided_id = ${datasetId}
-        group by exp_uuid, data_uuid, exp_id, data_id, dataset_type, e_created_at, e_updated_at"""
+          and dataset.provided_id = ${datasetId}"""
       .map { rs =>
         val experiment =
           Experiment(
@@ -982,9 +977,7 @@ object impl extends Database with JsonLogging {
             datasetId = Some(rs.string("data_id")),
             createdAt = Some(jodaFromEpoch(rs.double("e_created_at"))),
             updatedAt = Some(jodaFromEpoch(rs.double("e_updated_at"))),
-            datasetType = Some(datasetType(rs.string("dataset_type"))),
-            size = Some(rs.int("num_predictions")),
-            datasetSize = Some(rs.int("dataset_size")))
+            datasetType = Some(datasetType(rs.string("dataset_type"))))
         (rs.string("exp_uuid"), rs.string("data_uuid"), experiment)
       }
       .single
@@ -994,24 +987,71 @@ object impl extends Database with JsonLogging {
       case Some((experimentUuid, datasetUuid, experiment)) => {
         info("status" -> "success", "action" -> "get_experiment", "org" -> org, "dataset" -> datasetId, "experiment" -> experimentId)
 
-        if (experiment.datasetType == Some(Dataset.ClassificationType)) {
-          val classes = sql"""select distinct cvalue from datum where dataset_id = ${datasetUuid}::uuid"""
-            .map(_.string("cvalue"))
-            .list
-            .apply()
+        val sizeOpt = sql"""select count(1) from prediction where experiment_id = ${experimentUuid}::uuid"""
+          .map(_.int(1))
+          .single
+          .apply()
 
-          val classCounts = sql"""
-              select datum.cvalue gold_cls, prediction.cvalue pred_cls, count(1) num
-              from datum inner join prediction on prediction.datum_id = datum.datum_id
-              where prediction.experiment_id = ${experimentUuid}::uuid
-              group by gold_cls, pred_cls"""
-            .map { rs => (rs.string("gold_cls"), rs.string("pred_cls"), rs.int("num")) }
-            .list
-            .apply()
+        val dsSizeOpt = sql"""select count(1) from datum where dataset_id = ${datasetUuid}::uuid"""
+          .map(_.int(1))
+          .single
+          .apply()
 
-          experiment.copy(classificationResults = Some(Experiment.ClassificationResults(classes, classCounts)))
-        } else {
-          experiment
+        experiment.datasetType match {
+          case Some(Dataset.ClassificationType) => {
+            val classes = sql"""select distinct cvalue from datum where dataset_id = ${datasetUuid}::uuid"""
+              .map(_.string("cvalue"))
+              .list
+              .apply()
+
+            val classCounts = sql"""
+                select datum.cvalue gold_cls, prediction.cvalue pred_cls, count(1) num
+                from datum inner join prediction on prediction.datum_id = datum.datum_id
+                where prediction.experiment_id = ${experimentUuid}::uuid
+                group by gold_cls, pred_cls"""
+              .map { rs => (rs.string("gold_cls"), rs.string("pred_cls"), rs.int("num")) }
+              .list
+              .apply()
+
+            experiment.copy(
+              size = sizeOpt,
+              datasetSize = dsSizeOpt,
+              classificationResults = Some(Experiment.ClassificationResults(classes, classCounts)))
+          }
+          case Some(Dataset.RegressionType) => {
+            val regressStats = sql"""
+              select
+                  rmse,
+                  mean_abs_err,
+                  p[1] median_abs_err,
+                  p[2] p10_abs_err,
+                  p[3] p90_abs_err from (
+                select
+                    sqrt(avg(diffsq)) rmse,
+                    avg(abs_diff) mean_abs_err,
+                    (percentile_disc(array[.5, .1, .9]) within group (order by abs_diff)) p from (
+                  select abs(diff) abs_diff, diff * diff diffsq from (
+                    select datum.rvalue - prediction.rvalue diff
+                      from prediction
+                      inner join datum on prediction.datum_id = datum.datum_id
+                      where experiment_id = '428cf522-6ddd-11e5-b114-37fdfaf3915e') b) c) d"""
+              .map { rs =>
+                Experiment.RegressionResults(
+                  rs.double("rmse"),
+                  rs.double("mean_abs_err"),
+                  rs.double("median_abs_err"),
+                  rs.double("p10_abs_err"),
+                  rs.double("p90_abs_err"))
+              }
+              .single
+              .apply()
+
+            experiment.copy(
+              size = sizeOpt,
+              datasetSize = dsSizeOpt,
+              regressionResults = regressStats)
+          }
+          case _ => experiment.copy(size = sizeOpt, datasetSize = dsSizeOpt)
         }
       }
       case None => {

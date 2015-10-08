@@ -158,6 +158,7 @@ package object json {
     (__ \ "size").formatNullable[Int] and
     (__ \ "dataset_size").formatNullable[Int] and
     (__ \ "classification_results").formatNullable[Experiment.ClassificationResults] and
+    (__ \ "regression_results").formatNullable[Experiment.RegressionResults] and
     (__ \ "labels").formatNullable[Seq[String]] and
     (__ \ "comments").formatNullable[ResultSet[Comment]]
   )(Experiment.apply _, unlift(Experiment.unapply))
@@ -191,4 +192,12 @@ package object json {
     (__ \ "labels").format[Seq[String]] and
     (__ \ "class_counts").format[Seq[(String, String, Int)]]
   )(Experiment.ClassificationResults.apply _, unlift(Experiment.ClassificationResults.unapply))
+
+  implicit lazy val ExperimentRegressionResults: Format[Experiment.RegressionResults] = (
+    (__ \ "rmse").format[Double] and
+    (__ \ "mean_abs_err").format[Double] and
+    (__ \ "median_abs_err").format[Double] and
+    (__ \ "10_percentile_abs_err").format[Double] and
+    (__ \ "90_percentile_abs_err").format[Double]
+  )(Experiment.RegressionResults.apply _, unlift(Experiment.RegressionResults.unapply))
 }

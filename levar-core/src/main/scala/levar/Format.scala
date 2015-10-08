@@ -213,6 +213,17 @@ object Format {
       sb ++= num
     }
 
+    experiment.regressionResults foreach { results =>
+      sb ++= "\n"
+      sb ++= f"""|
+                 |Results:
+                 |- RMSE:              ${results.rmse}%7.1f
+                 |- Mean abs error:    ${results.meanAbsErr}%7.1f
+                 |- Median abs error:  ${results.medianAbsErr}%7.1f
+                 |- 10-percentile err: ${results.p10AbsErr}%7.1f
+                 |- 90-percentile err: ${results.p90AbsErr}%7.1f""".stripMargin
+    }
+
     sb.toString
   }
 }
