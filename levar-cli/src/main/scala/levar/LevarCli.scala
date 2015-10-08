@@ -118,6 +118,7 @@ object LevarCli {
           val experimentCmd = new Subcommand("experiment") {
             banner(" View a summary of experiment results")
             footer("")
+            val dataset = trailArg[String](required = true, descr = "Dataset associated with the experiment (by ID or org/id pattern)")
             val experiment = trailArg[String](required = true, descr = "Experiment to view")
           }
         }
@@ -131,6 +132,15 @@ object LevarCli {
 
             val from = trailArg[String](required = true, descr = "Dataset to rename")
             val to = trailArg[String](required = true, descr = "New name for the dataset")
+          }
+
+          val experimentCmd = new Subcommand("experiment") {
+            banner(" Rename a experiment")
+            footer("")
+
+            val dataset = trailArg[String](required = true, descr = "Dataset associated with the experiment")
+            val from = trailArg[String](required = true, descr = "Experiment to rename")
+            val to = trailArg[String](required = true, descr = "New name for the experiment")
           }
         }
 
@@ -646,6 +656,29 @@ object LevarCli {
             Console.err.println("Org + dataset do not match")
             sys.exit(1)
           }
+        }
+
+        case List(args.viewCmd, args.viewCmd.experimentCmd) => {
+          val client = ClientConfigIo.loadClient
+          val dsName = args.deleteCmd.experimentCmd.dataset()
+          val (org, datasetId) = dsName match {
+            case OrgThingPattern(org, datasetId) => (org, datasetId)
+            case ThingPattern(datasetId) => (client.config.org, datasetId)
+            case _ => {
+              Console.err.println(s"Invalid dataset name: $dsName")
+              sys.exit(1)
+            }
+          }
+          val expName = args.deleteCmd.experimentCmd.experiment()
+          val experimentId = expName match {
+            case ThingPattern(eid) => eid
+            case _ => {
+              Console.err.println(s"Invalid dataset name: $expName")
+              sys.exit(1)
+            }
+          }
+          val experiment = Await.result(client.getExperiment(org, datasetId, experimentId), 10 seconds)
+          println(Format.experimentToString(experiment))
         }
 
         case _ => println("You did not supply an argument -- try 'levar-cli datasets'")

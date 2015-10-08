@@ -123,11 +123,7 @@ object Format {
   def experimentToString(experiment: Experiment) = {
 
     val sb = new StringBuilder()
-    sb ++= s"Experiment:  ${experiment.id}"
-
-    experiment.datasetId foreach { ds =>
-      sb ++= s"\nDataset:       ${ds}"
-    }
+    sb ++= s"Experiment:    ${experiment.displayName}"
 
     experiment.datasetType foreach { dtype =>
       sb ++= s"\nType:          ${dtype.name}"
@@ -142,6 +138,79 @@ object Format {
           sb ++= s" (of $dsSize)"
         }
       }
+    }
+
+    experiment.classificationResults foreach { results =>
+      sb ++= "\n\nResults:\n"
+
+      sb ++= f"\nOverall accuracy: ${results.overallAccuracy}%.3f\n"
+
+      val clsWidth = (Seq(10) ++ results.classes.map(_.size)).max + 1
+
+      sb ++= "\n Class"
+      sb ++= " " * (clsWidth - "Class".size)
+      sb ++= " | Prec | Rec  |  F1\n"
+      sb ++= "-" * (clsWidth + 2)
+      sb ++= "|------|------|------"
+      for (cls <- results.classes) {
+        sb ++= "\n "
+        sb ++= cls
+        sb ++= " " * (clsWidth - cls.size)
+        val p = f"${100 * results.precision(cls)}%.1f"
+        val r = f"${100 * results.recall(cls)}%.1f"
+        val f1 = f"${100 * results.f1(cls)}%.1f"
+        val pp = " " * (4 - p.size) + p
+        val rr = " " * (4 - r.size) + r
+        val ff1 = " " * (4 - f1.size) + f1
+        sb ++= s" | $pp | $rr | $ff1"
+      }
+      sb ++= "\n"
+
+      sb ++= "\nConfusion matrix (columns give predicted counts; rows give gold counts)\n"
+
+      sb ++= "\n Class"
+      sb ++= " " * (clsWidth - "Class".size)
+      for (cls <- results.classes) {
+        sb ++= " |"
+        sb ++= " " * (clsWidth - cls.size)
+        sb ++= cls
+      }
+      sb ++= " |     Totals"
+      sb ++= "\n-"
+      sb ++= "-" * (clsWidth + 1)
+      for (cls <- results.classes) {
+        sb ++= "|"
+        sb ++= "-" * (clsWidth + 1)
+      }
+      sb ++= "|------------"
+
+      for (gcls <- results.classes) {
+        sb ++= "\n "
+        sb ++= gcls
+        sb ++= " " * (clsWidth - gcls.size)
+        for (pcls <- results.classes) {
+          sb ++= " |"
+          val num = results.num(gcls, pcls).toString
+          sb ++= " " * (clsWidth - num.size)
+          sb ++= num
+        }
+        sb ++= " | "
+        val goldTotal = results.goldSum(gcls).toString
+        sb ++= " " * (10 - goldTotal.size)
+        sb ++= goldTotal
+      }
+      sb ++= "\n Totals"
+      sb ++= " " * (clsWidth - "Totals".size)
+      for (cls <- results.classes) {
+        sb ++= " |"
+        val num = results.predSum(cls).toString
+        sb ++= " " * (clsWidth - num.size)
+        sb ++= num
+      }
+      sb ++= " | "
+      val num = results.total.toString
+      sb ++= " " * (10 - num.size)
+      sb ++= num
     }
 
     sb.toString

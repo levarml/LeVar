@@ -641,6 +641,16 @@ class JsonSpec extends FlatSpec {
           Seq(Comment("john", "yo"), Comment("mary", "lo"))))))
   }
 
+  it should "handle classification results" in {
+    val results =
+      Experiment.ClassificationResults(Seq("yes", "no"), Seq(("yes", "yes", 1), ("no", "yes", 2)))
+    val experimentExp = Experiment("hello-world", classificationResults = Some(results))
+    val jsonString = Json.toJson(experimentExp).toString
+    val experimentAct = Json.parse(jsonString).as[Experiment]
+    assert(results.classes.toSet == experimentAct.classificationResults.get.classes.toSet)
+    assert(results.classCounts.toSet == experimentAct.classificationResults.get.classCounts.toSet)
+  }
+
   "Experiment JSON deserialization" should "create basic JSON" in {
     assertReads(
       Experiment("hello-world"),

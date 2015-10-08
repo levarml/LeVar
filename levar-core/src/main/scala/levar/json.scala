@@ -178,11 +178,14 @@ package object json {
     (__ \ "predictions").formatNullable[Seq[Prediction]]
   )(ExperimentUpdate.apply _, unlift(ExperimentUpdate.unapply))
 
-  implicit def Tuple3Format[A, B, C](implicit fmtA: Format[A], fmtB: Format[B], fmtC: Format[C]): Format[(A, B, C)] = (
-    __(0).format[A] and
-    __(1).format[B] and
-    __(2).format[C]
-  )(Tuple3.apply _, unlift(Tuple3.unapply))
+  implicit def Tuple3Format[A, B, C](implicit fmtA: Format[A], fmtB: Format[B], fmtC: Format[C]): Format[(A, B, C)] = {
+    val reads = Reads[(A, B, C)] { js =>
+      val JsArray(ls) = js
+      JsSuccess((ls(0).as[A], ls(1).as[B], ls(2).as[C]))
+    }
+    val writes = Writes[(A, B, C)]((x: (A, B, C)) => { JsArray(Seq(Json.toJson(x._1), Json.toJson(x._2), Json.toJson(x._3))) })
+    Format(reads, writes)
+  }
 
   implicit lazy val ExperimentClassificationResults: Format[Experiment.ClassificationResults] = (
     (__ \ "labels").format[Seq[String]] and

@@ -16,17 +16,23 @@ import org.joda.time.DateTime
  * @param comments the comments made of this experiment
  */
 case class Experiment(
-  id: String,
-  datasetId: Option[String] = None,
-  datasetType: Option[Dataset.DatasetType] = None,
-  name: Option[String] = None,
-  createdAt: Option[DateTime] = None,
-  updatedAt: Option[DateTime] = None,
-  size: Option[Int] = None,
-  datasetSize: Option[Int] = None,
-  classificationResults: Option[Experiment.ClassificationResults] = None,
-  labels: Option[Seq[String]] = None,
-  comments: Option[ResultSet[Comment]] = None)
+    id: String,
+    datasetId: Option[String] = None,
+    datasetType: Option[Dataset.DatasetType] = None,
+    name: Option[String] = None,
+    createdAt: Option[DateTime] = None,
+    updatedAt: Option[DateTime] = None,
+    size: Option[Int] = None,
+    datasetSize: Option[Int] = None,
+    classificationResults: Option[Experiment.ClassificationResults] = None,
+    labels: Option[Seq[String]] = None,
+    comments: Option[ResultSet[Comment]] = None) {
+
+  def displayName = datasetId match {
+    case Some(ds) => s"$ds/$id"
+    case None => id
+  }
+}
 
 object Experiment {
 
@@ -34,15 +40,28 @@ object Experiment {
 
   case class ClassificationResults(classes: Seq[String], classCounts: Seq[(String, String, Int)]) {
 
-    @transient private lazy val m = classCounts.map(x => (x._1, x._2) -> x._3).toMap
+    lazy val totalCorrect: Int = classCounts.filter(x => x._1 == x._2).map(_._3).sum
 
-    def num(gold: String, pred: String): Int = m((gold, pred))
+    private lazy val m: Map[(String, String), Int] = classCounts.map(x => (x._1, x._2) -> x._3).toMap
 
-    @transient lazy val total: Int = classes.map(colSum(_)).sum
+    lazy val total: Int = classes.map(goldSum(_)).sum
 
-    def colSum(gold: String) = classes.map(num(gold, _)).sum
+    lazy val overallAccuracy: Double = totalCorrect.toDouble / total
 
-    def rowSum(pred: String) = classes.map(num(_, pred)).sum
+    def num(gold: String, pred: String): Int = m.getOrElse((gold, pred), 0)
+
+    def goldSum(gold: String): Int = classes.map(num(gold, _)).sum
+
+    def predSum(pred: String): Int = classes.map(num(_, pred)).sum
+
+    def precision(cls: String): Double = num(cls, cls).toDouble / predSum(cls)
+
+    def recall(cls: String): Double = num(cls, cls).toDouble / goldSum(cls)
+
+    def f1(cls: String): Double = {
+      val p = precision(cls)
+      val r = recall(cls)
+      2 * p * r / (p + r)
+    }
   }
-
 }
