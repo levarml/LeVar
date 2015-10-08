@@ -689,6 +689,7 @@ object LevarCli {
           }
           val experiment = Await.result(client.getExperiment(org, datasetId, experimentId), 10 seconds)
           println(Format.experimentToString(experiment))
+          println
         }
 
         case _ => println("You did not supply an argument -- try 'levar-cli datasets'")

@@ -203,20 +203,17 @@ object Format {
 
       sb ++= "\n Class"
       sb ++= " " * (clsWidth - "Class".size)
-      sb ++= " | Prec | Rec  |  F1\n"
+      sb ++= " | Prec  | Rec   | F1\n"
       sb ++= "-" * (clsWidth + 2)
-      sb ++= "|------|------|------"
+      sb ++= "|-------|-------|-------"
       for (cls <- results.classes) {
         sb ++= "\n "
         sb ++= cls
         sb ++= " " * (clsWidth - cls.size)
-        val p = f"${100 * results.precision(cls)}%.1f"
-        val r = f"${100 * results.recall(cls)}%.1f"
-        val f1 = f"${100 * results.f1(cls)}%.1f"
-        val pp = " " * (4 - p.size) + p
-        val rr = " " * (4 - r.size) + r
-        val ff1 = " " * (4 - f1.size) + f1
-        sb ++= s" | $pp | $rr | $ff1"
+        val p = f"${100 * results.precision(cls)}%5.1f"
+        val r = f"${100 * results.recall(cls)}%5.1f"
+        val f1 = f"${100 * results.f1(cls)}%5.1f"
+        sb ++= s" | $p | $r | $f1"
       }
       sb ++= "\n"
 
