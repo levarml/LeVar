@@ -602,6 +602,7 @@ object LevarCli {
             }
             val saved = Await.result(client.getExperiment(org, datasetId, name), 10 seconds)
             println(Format.experimentToString(saved))
+            println
           } catch {
             case e: ConnectionError => {
               Console.err.println("Could not upload datset")
