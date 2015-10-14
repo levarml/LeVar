@@ -1034,7 +1034,7 @@ object impl extends Database with JsonLogging {
                     select datum.rvalue - prediction.rvalue diff
                       from prediction
                       inner join datum on prediction.datum_id = datum.datum_id
-                      where experiment_id = '428cf522-6ddd-11e5-b114-37fdfaf3915e') b) c) d"""
+                      where experiment_id = ${experimentUuid}::uuid) b) c) d"""
               .map { rs =>
                 Experiment.RegressionResults(
                   rs.double("rmse"),
