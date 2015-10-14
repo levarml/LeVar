@@ -232,6 +232,10 @@ roadmap, but at a high level here are some of the things planned:
 * Error analysis and viewing individual experiment predictions
 * Periodic runs of experiments against a resource (like an API)
 
+## License
+
+LeVar is open source and licensed under the [Apache License 2.0](LICENSE.txt).
+
 ## Acknowledgements
 
 Developed with love at [People Pattern Corporation](https://peoplepattern.com)

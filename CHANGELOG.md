@@ -20,3 +20,4 @@
   * `levar-cli delete experiment`
   * `levar-cli download dataset`
   * `levar-cli preview dataset`
+- Open source under Apache License 2.0
