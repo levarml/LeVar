@@ -1036,15 +1036,22 @@ object impl extends Database with JsonLogging {
                       inner join datum on prediction.datum_id = datum.datum_id
                       where experiment_id = ${experimentUuid}::uuid) b) c) d"""
               .map { rs =>
-                Experiment.RegressionResults(
-                  rs.double("rmse"),
-                  rs.double("mean_abs_err"),
-                  rs.double("median_abs_err"),
-                  rs.double("p10_abs_err"),
-                  rs.double("p90_abs_err"))
+                (
+                  rs.doubleOpt("rmse"),
+                  rs.doubleOpt("mean_abs_err"),
+                  rs.doubleOpt("median_abs_err"),
+                  rs.doubleOpt("p10_abs_err"),
+                  rs.doubleOpt("p90_abs_err")
+                ) match {
+                    case (Some(rmse), Some(aae), Some(mae), Some(p10), Some(p90)) => {
+                      Some(Experiment.RegressionResults(rmse, aae, mae, p10, p90))
+                    }
+                    case _ => None
+                  }
               }
               .single
               .apply()
+              .flatten
 
             experiment.copy(
               size = sizeOpt,
