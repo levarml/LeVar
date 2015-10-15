@@ -13,3 +13,7 @@ cache:
   directories:
     - $HOME/.ivy2/cache
     - $HOME/.sbt/boot/
+addons:
+  postgresql: "9.3"
+before_script:
+  - psql -c 'create database levar;' -U postgres

@@ -2,6 +2,8 @@
 
 Machine learning training and evaluation database.
 
+[![Build Status](https://travis-ci.org/peoplepattern/LeVar.svg?branch=master)](https://travis-ci.org/peoplepattern/LeVar)
+
 ## About
 
 This is a database for storing and organizing your machine learning evaluation data.
