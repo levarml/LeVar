@@ -220,7 +220,7 @@ being used. To view experiments associated with a dataset:
 To view experiment evaluation details, provide both the dataset and the experiment
 IDs:
 
-    $ levar-cli view experiment wine wine-test-01
+    $ levar-cli view experiment wine/wine-test-01
 
 ## More to come.
 

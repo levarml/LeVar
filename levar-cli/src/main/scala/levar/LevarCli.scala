@@ -21,8 +21,9 @@ object LevarCli {
 
   implicit val context = play.api.libs.concurrent.Execution.Implicits.defaultContext
 
-  val OrgThingPattern = """([-\w\.]+)/([-\w\.]+)""".r
-  val ThingPattern = """([-\w\.]+)""".r
+  val aPatt = """([-\w\.]+)""".r
+  val abPatt = """([-\w\.]+)/([-\w\.]+)""".r
+  val abcPatt = """([-\w\.]+)/([-\w\.]+)/([-\w\.]+)""".r
 
   def main(argv: Array[String]) {
 
@@ -82,7 +83,6 @@ object LevarCli {
             footer("")
 
             val dataset = trailArg[String]("dataset", required = false, descr = "List experiments for this dataset")
-            val org = opt[String]("org", required = false, descr = "Organization to list if not your default")
           }
         }
 
@@ -118,8 +118,7 @@ object LevarCli {
           val experimentCmd = new Subcommand("experiment") {
             banner(" View a summary of experiment results")
             footer("")
-            val dataset = trailArg[String](required = true, descr = "Dataset associated with the experiment (by ID or org/id pattern)")
-            val experiment = trailArg[String](required = true, descr = "Experiment to view")
+            val experiment = trailArg[String](required = true, descr = "Experiment to view -- specify like DATASET/EXPERIMENT")
           }
         }
 
@@ -138,9 +137,8 @@ object LevarCli {
             banner(" Rename a experiment")
             footer("")
 
-            val dataset = trailArg[String](required = true, descr = "Dataset associated with the experiment")
-            val from = trailArg[String](required = true, descr = "Experiment to rename")
-            val to = trailArg[String](required = true, descr = "New name for the experiment")
+            val from = trailArg[String](required = true, descr = "Experiment to rename -- specify like DATASET/EXPERIMENT")
+            val to = trailArg[String](required = true, descr = "New name for the experiment (omit dataset path)")
           }
         }
 
@@ -156,8 +154,7 @@ object LevarCli {
           val experimentCmd = new Subcommand("experiment") {
             banner(" Delete an experiment")
             footer("")
-            val dataset = trailArg[String](required = true, descr = "Dataset for the experiment")
-            val experiment = trailArg[String](required = true, descr = "Experiment to delete")
+            val experiment = trailArg[String](required = true, descr = "Experiment to delete -- specify like DATASET/EXPERIMENT")
           }
         }
 
@@ -387,8 +384,8 @@ object LevarCli {
           val dsName = args.viewCmd.datasetCmd.dataset()
           val client = ClientConfigIo.loadClient
           val (org, datasetId) = dsName match {
-            case OrgThingPattern(org, datasetId) => (org, datasetId)
-            case ThingPattern(datasetId) => (client.config.org, datasetId)
+            case abPatt(org, datasetId) => (org, datasetId)
+            case aPatt(datasetId) => (client.config.org, datasetId)
             case _ => {
               Console.err.println(s"Invalid dataset name: $dsName")
               sys.exit(1)
@@ -457,8 +454,8 @@ object LevarCli {
           val dsName = args.deleteCmd.datasetCmd.dataset()
           val client = ClientConfigIo.loadClient
           val (org, datasetId) = dsName match {
-            case OrgThingPattern(org, datasetId) => (org, datasetId)
-            case ThingPattern(datasetId) => (client.config.org, datasetId)
+            case abPatt(org, datasetId) => (org, datasetId)
+            case aPatt(datasetId) => (client.config.org, datasetId)
             case _ => {
               Console.err.println(s"Invalid dataset name: $dsName")
               sys.exit(1)
@@ -469,7 +466,7 @@ object LevarCli {
                |To confirm, type your organization and dataset name (like "org/dataset")""".stripMargin)
 
           readLine("> ").trim match {
-            case OrgThingPattern(orgVerify, datasetIdVerify) if orgVerify == org && datasetIdVerify == datasetId => {
+            case abPatt(orgVerify, datasetIdVerify) if orgVerify == org && datasetIdVerify == datasetId => {
               Await.result(client.deleteDataset(org, datasetId), 10 seconds)
               println("Deleted")
             }
@@ -486,8 +483,8 @@ object LevarCli {
           val client = ClientConfigIo.loadClient
           try {
             val (org, datasetId) = dsName match {
-              case OrgThingPattern(org, datasetId) => (org, datasetId)
-              case ThingPattern(datasetId) => (client.config.org, datasetId)
+              case abPatt(org, datasetId) => (org, datasetId)
+              case aPatt(datasetId) => (client.config.org, datasetId)
               case _ => {
                 Console.err.println(s"Invalid dataset name: $dsName")
                 sys.exit(1)
@@ -538,24 +535,23 @@ object LevarCli {
         case List(args.listCmd, args.listCmd.experimentsCmd) => {
           val dsNameOpt = args.listCmd.experimentsCmd.dataset.get
           val client = ClientConfigIo.loadClient
-          val org = args.listCmd.experimentsCmd.org.get.getOrElse(client.config.org)
           try {
             val experimentRS = dsNameOpt match {
               case Some(dsName) => {
                 val (datasetOrg, datasetId) = dsName match {
-                  case OrgThingPattern(datasetOrg, datasetId) => (datasetOrg, datasetId)
-                  case ThingPattern(datasetId) => (org, datasetId)
+                  case abPatt(datasetOrg, datasetId) => (datasetOrg, datasetId)
+                  case aPatt(datasetId) => (client.config.org, datasetId)
                   case _ => {
                     Console.err.println(s"Invalid dataset name: $dsName")
                     sys.exit(1)
                   }
                 }
                 println(s"Experiments for dataset $datasetOrg/$datasetId")
-                Await.result(client.searchExperiments(org, datasetId), 10 seconds)
+                Await.result(client.searchExperiments(datasetOrg, datasetId), 10 seconds)
               }
               case None => {
-                println(s"Experiments for organization $org")
-                Await.result(client.searchExperiments(org), 10 seconds)
+                Console.err.println("Please provide a dataset ID")
+                sys.exit(1)
               }
             }
             println
@@ -575,8 +571,8 @@ object LevarCli {
           val fileName = args.uploadCmd.experimentCmd.file()
           val dsName = args.uploadCmd.experimentCmd.dataset()
           val (org, datasetId) = dsName match {
-            case OrgThingPattern(datasetOrg, datasetId) => (datasetOrg, datasetId)
-            case ThingPattern(datasetId) => (client.config.org, datasetId)
+            case abPatt(datasetOrg, datasetId) => (datasetOrg, datasetId)
+            case aPatt(datasetId) => (client.config.org, datasetId)
             case _ => {
               Console.err.println(s"Invalid dataset name: $dsName")
               sys.exit(1)
@@ -618,8 +614,8 @@ object LevarCli {
           val dsName = args.renameCmd.datasetCmd.from()
           val client = ClientConfigIo.loadClient
           val (org, datasetId) = dsName match {
-            case OrgThingPattern(org, datasetId) => (org, datasetId)
-            case ThingPattern(datasetId) => (client.config.org, datasetId)
+            case abPatt(org, datasetId) => (org, datasetId)
+            case aPatt(datasetId) => (client.config.org, datasetId)
             case _ => {
               Console.err.println(s"Invalid dataset name: $dsName")
               sys.exit(1)
@@ -627,7 +623,7 @@ object LevarCli {
           }
           val newName = args.renameCmd.datasetCmd.to()
           val newDatasetId = newName match {
-            case ThingPattern(newDsId) => newDsId
+            case aPatt(newDsId) => newDsId
             case _ => {
               Console.err.println(s"Invalid dataset name: $newName")
               sys.exit(1)
@@ -639,20 +635,13 @@ object LevarCli {
 
         case List(args.deleteCmd, args.deleteCmd.experimentCmd) => {
           val client = ClientConfigIo.loadClient
-          val dsName = args.deleteCmd.experimentCmd.dataset()
-          val (org, datasetId) = dsName match {
-            case OrgThingPattern(org, datasetId) => (org, datasetId)
-            case ThingPattern(datasetId) => (client.config.org, datasetId)
-            case _ => {
-              Console.err.println(s"Invalid dataset name: $dsName")
-              sys.exit(1)
-            }
-          }
           val expName = args.deleteCmd.experimentCmd.experiment()
-          val experimentId = expName match {
-            case ThingPattern(eid) => eid
+          val (org, datasetId, experimentId) = expName match {
+            case abcPatt(orgId, datasetId, experimentId) => (orgId, datasetId, experimentId)
+            case abPatt(datasetId, experimentId) => (client.config.org, datasetId, experimentId)
             case _ => {
-              Console.err.println(s"Invalid dataset name: $expName")
+              Console.err.println(s"Invalid experiment name: $expName")
+              Console.err.println("Please specify as DATASET/EXPERIMENT or ORG/DATASET/EXPERIMENT")
               sys.exit(1)
             }
           }
@@ -671,20 +660,13 @@ object LevarCli {
 
         case List(args.viewCmd, args.viewCmd.experimentCmd) => {
           val client = ClientConfigIo.loadClient
-          val dsName = args.deleteCmd.experimentCmd.dataset()
-          val (org, datasetId) = dsName match {
-            case OrgThingPattern(org, datasetId) => (org, datasetId)
-            case ThingPattern(datasetId) => (client.config.org, datasetId)
-            case _ => {
-              Console.err.println(s"Invalid dataset name: $dsName")
-              sys.exit(1)
-            }
-          }
           val expName = args.deleteCmd.experimentCmd.experiment()
-          val experimentId = expName match {
-            case ThingPattern(eid) => eid
+          val (org, datasetId, experimentId) = expName match {
+            case abcPatt(orgId, datasetId, experimentId) => (orgId, datasetId, experimentId)
+            case abPatt(datasetId, experimentId) => (client.config.org, datasetId, experimentId)
             case _ => {
-              Console.err.println(s"Invalid dataset name: $expName")
+              Console.err.println(s"Invalid experiment name: $expName")
+              Console.err.println("Please specify as DATASET/EXPERIMENT or ORG/DATASET/EXPERIMENT")
               sys.exit(1)
             }
           }
