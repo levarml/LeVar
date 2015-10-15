@@ -8,7 +8,6 @@ import levar.client._
 import levar.io._
 import levar.util._
 import scala.io.Source
-import scala.io.StdIn.readLine
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import java.io.{ File, FileOutputStream, PrintStream, BufferedOutputStream }
@@ -24,6 +23,11 @@ object LevarCli {
   val aPatt = """([-\w\.]+)""".r
   val abPatt = """([-\w\.]+)/([-\w\.]+)""".r
   val abcPatt = """([-\w\.]+)/([-\w\.]+)/([-\w\.]+)""".r
+
+  def readLine(prompt: String): String = {
+    print(prompt)
+    Console.in.readLine.trim
+  }
 
   def main(argv: Array[String]) {
 
