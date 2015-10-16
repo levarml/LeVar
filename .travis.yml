@@ -6,7 +6,8 @@ scala:
 jdk:
   - oraclejdk8
 script:
-  - sbt ++$TRAVIS_SCALA_VERSION test
+  - sbt ++$TRAVIS_SCALA_VERSION clean coverage test
+  - sbt ++$TRAVIS_SCALA_VERSION coverageAggregate
   - find $HOME/.sbt -name "*.lock" | xargs rm
   - find $HOME/.ivy2 -name "ivydata-*.properties" | xargs rm
 cache:
@@ -17,3 +18,5 @@ addons:
   postgresql: "9.4"
 before_script:
   - psql -c 'create database levar;' -U postgres
+after_success:
+  -sbt coveralls

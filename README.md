@@ -3,6 +3,7 @@
 Machine learning training and evaluation database.
 
 [![Build Status](https://travis-ci.org/peoplepattern/LeVar.svg?branch=master)](https://travis-ci.org/peoplepattern/LeVar)
+[![Coverage Status](https://coveralls.io/repos/peoplepattern/LeVar/badge.svg?branch=master&service=github)](https://coveralls.io/github/peoplepattern/LeVar?branch=master)
 
 ## About
 
