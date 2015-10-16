@@ -19,4 +19,4 @@ addons:
 before_script:
   - psql -c 'create database levar;' -U postgres
 after_success:
-  -sbt coveralls
+  - sbt coveralls
