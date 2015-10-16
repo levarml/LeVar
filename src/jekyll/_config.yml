@@ -1,0 +1,24 @@
+# Permalinks
+#
+# Use of `relative_permalinks` ensures post links from the index work properly.
+permalink:           pretty
+relative_permalinks: true
+
+# Setup
+title:               LeVar
+tagline:             'Model evaluation database for machine learning'
+description:         'An evaluation databset for machine learning projects Made at <a href="http://www.peoplepattern.com" target="_blank">People Pattern</a>.'
+url:                 http://peoplepattern.github.io/LeVar
+baseurl:             '/LeVar'
+
+# About/contact
+author:
+  name:              Elias Ponvert
+  url:               https://eponvert.github.io
+  email:             elias@peoplepattern.com
+
+# Custom vars
+version:             0.1-SNAPSHOT
+
+github:
+  repo:              https://github.com/peoplepattern/LeVar

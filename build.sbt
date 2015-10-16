@@ -47,6 +47,12 @@ lazy val cli = project
 lazy val root = project
   .in(file("."))
   .settings(commonSettings: _*)
+  .settings(
+    site.settings,
+    ghpages.settings,
+    git.remoteRepo := "git@github.com:peoplepattern/LeVar.git",
+    site.jekyllSupport()
+  )
   .aggregate(core, web, client, cli)
 
 fork := true
