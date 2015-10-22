@@ -20,6 +20,13 @@ lazy val commonSettings = Seq(
   ),
   buildInfoKeys := Seq[BuildInfoKey](version),
   buildInfoPackage := "levar.build",
+  bintrayOrganization := Some("peoplepattern"),
+  bintrayRepository := "levar",
+  publishMavenStyle := false,
+  licenses := Seq("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
+  homepage := Some(url("http://peoplepattern.github.io/LeVar")),
+  crossScalaVersions := Seq("2.10.6", "2.11.7"),
+  releaseCrossBuild := true,
   fork := true
 ) ++ scalariformSettings
 
