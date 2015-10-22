@@ -1,6 +1,6 @@
-# Changelog
+# Change Log
 
-## [Unreleased]
+## [0.1] - 2015-10-22
 
 ### Added
 - Basic LeVar REST server supporting CRUD on datasets and experiments
@@ -21,3 +21,5 @@
   * `levar-cli download dataset`
   * `levar-cli preview dataset`
 - Open source under Apache License 2.0
+- Details to support Travis CI and Bintray publishing
+- Basic website
