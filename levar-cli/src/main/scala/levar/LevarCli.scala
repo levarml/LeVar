@@ -36,6 +36,8 @@ object LevarCli {
       // Settings -- app defaults and environment variables
       val conf = ConfigFactory.load
 
+      val waitTime = conf.getInt("levar.standard_api_wait")
+
       /// CLI args
       val args = new ScallopConf(argv) {
 
@@ -321,7 +323,7 @@ object LevarCli {
           val client = ClientConfigIo.loadClient
           val org = args.listCmd.datasetsCmd.org.get.getOrElse(client.config.org)
           try {
-            val datasetRS = Await.result(client.searchDatasets(org), 10 seconds)
+            val datasetRS = Await.result(client.searchDatasets(org), waitTime seconds)
             if (datasetRS.nonEmpty) {
               println(s"Datasets for $org")
               println
@@ -359,12 +361,12 @@ object LevarCli {
             try {
               val tabular = TsvDataset.fromSource(name, src)
               val dataset = tabular.asDataset
-              Await.result(client.createDataset(dataset, org), 10 seconds)
+              Await.result(client.createDataset(dataset, org), waitTime seconds)
               for (data <- tabular.data.grouped(250)) {
                 val d = data.toSeq
-                Await.result(client.uploadDatasetData(dataset.id, d, org), 10 seconds)
+                Await.result(client.uploadDatasetData(dataset.id, d, org), waitTime seconds)
               }
-              val saved = Await.result(client.getDataset(org, name), 10 seconds)
+              val saved = Await.result(client.getDataset(org, name), waitTime seconds)
               println(Format.datasetToString(saved))
               println
             } catch {
@@ -396,7 +398,7 @@ object LevarCli {
             }
           }
           try {
-            val dataset = Await.result(client.getDataset(Some(org), datasetId), 10 seconds)
+            val dataset = Await.result(client.getDataset(Some(org), datasetId), waitTime seconds)
             println(Format.datasetToString(dataset))
             println
           } catch {
@@ -471,7 +473,7 @@ object LevarCli {
 
           readLine("> ").trim match {
             case abPatt(orgVerify, datasetIdVerify) if orgVerify == org && datasetIdVerify == datasetId => {
-              Await.result(client.deleteDataset(org, datasetId), 10 seconds)
+              Await.result(client.deleteDataset(org, datasetId), waitTime seconds)
               println("Deleted")
             }
             case _ => {
@@ -495,7 +497,7 @@ object LevarCli {
               }
             }
 
-            val dataset = Await.result(client.getDataset(org, datasetId), 10 seconds)
+            val dataset = Await.result(client.getDataset(org, datasetId), waitTime seconds)
 
             val cols = Seq("id") ++ dataset.columns ++ {
               if (useGold) Seq(dataset.dtype.colname) else Seq.empty
@@ -515,13 +517,13 @@ object LevarCli {
 
             try {
               stream.println(cols.mkString("\t"))
-              var rs = Await.result(client.fetchData(org, datasetId, useGold), 10 seconds)
+              var rs = Await.result(client.fetchData(org, datasetId, useGold), waitTime seconds)
               while (rs.nonEmpty) {
                 for (datum <- rs) {
                   stream.println(datum.dataByCol(cols).map(_.toString).mkString("\t"))
                 }
                 rs.lastOption.flatMap(_.id) foreach { id =>
-                  rs = Await.result(client.fetchData(org, datasetId, useGold, id), 10 seconds)
+                  rs = Await.result(client.fetchData(org, datasetId, useGold, id), waitTime seconds)
                 }
               }
             } finally {
@@ -551,7 +553,7 @@ object LevarCli {
                   }
                 }
                 println(s"Experiments for dataset $datasetOrg/$datasetId")
-                Await.result(client.searchExperiments(datasetOrg, datasetId), 10 seconds)
+                Await.result(client.searchExperiments(datasetOrg, datasetId), waitTime seconds)
               }
               case None => {
                 Console.err.println("Please provide a dataset ID")
@@ -592,15 +594,15 @@ object LevarCli {
           val src = Source.fromFile(args.uploadCmd.experimentCmd.file())
 
           try {
-            val dataset = Await.result(client.getDataset(Some(org), datasetId), 10 seconds)
+            val dataset = Await.result(client.getDataset(Some(org), datasetId), waitTime seconds)
             val tabular = TsvExperiment.fromSource(dataset.dtype, name, src)
             val experiment = tabular.asExperiment
-            Await.result(client.createExperiment(org, datasetId, experiment), 10 seconds)
+            Await.result(client.createExperiment(org, datasetId, experiment), waitTime seconds)
             for (data <- tabular.data.grouped(1000)) {
               val d = data.toSeq
-              Await.result(client.uploadExperimentData(org, datasetId, experiment.id, d), 10 seconds)
+              Await.result(client.uploadExperimentData(org, datasetId, experiment.id, d), waitTime seconds)
             }
-            val saved = Await.result(client.getExperiment(org, datasetId, name), 10 seconds)
+            val saved = Await.result(client.getExperiment(org, datasetId, name), waitTime seconds)
             println(Format.experimentToString(saved))
             println
           } catch {
@@ -633,7 +635,7 @@ object LevarCli {
               sys.exit(1)
             }
           }
-          Await.result(client.renameDataset(org, datasetId, newDatasetId), 10 seconds)
+          Await.result(client.renameDataset(org, datasetId, newDatasetId), waitTime seconds)
           println(s"Dataset $org/$datasetId renamed to $org/$newDatasetId")
         }
 
@@ -654,7 +656,7 @@ object LevarCli {
                |To confirm, type the experiment name""".stripMargin)
 
           if (readLine("> ").trim == experimentId) {
-            Await.result(client.deleteExperiment(org, datasetId, experimentId), 10 seconds)
+            Await.result(client.deleteExperiment(org, datasetId, experimentId), waitTime seconds)
             println("Deleted")
           } else {
             Console.err.println("Org + dataset do not match")
@@ -674,7 +676,7 @@ object LevarCli {
               sys.exit(1)
             }
           }
-          val experiment = Await.result(client.getExperiment(org, datasetId, experimentId), 10 seconds)
+          val experiment = Await.result(client.getExperiment(org, datasetId, experimentId), waitTime seconds)
           println(Format.experimentToString(experiment))
           println
         }
