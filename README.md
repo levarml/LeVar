@@ -61,7 +61,7 @@ to load the `web` project explicitly in the SBT console.
 
 To run locally:
 
-    $ sbt build
+    $ sbt stage
     $ levar-web/target/universal/stage/bin/levar-web
 
 Startup output should look like this:
