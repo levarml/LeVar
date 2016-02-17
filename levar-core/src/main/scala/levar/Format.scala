@@ -197,7 +197,7 @@ object Format {
     experiment.classificationResults foreach { results =>
       sb ++= "\n\nResults:\n"
 
-      sb ++= f"\nOverall accuracy: ${results.overallAccuracy}%.3f\n"
+      sb ++= f"\nOverall accuracy: ${100 * results.overallAccuracy}%5.1f\n"
 
       val clsWidth = (Seq(10) ++ results.classes.map(_.size)).max + 1
 
