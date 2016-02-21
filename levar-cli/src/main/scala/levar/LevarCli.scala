@@ -50,6 +50,11 @@ object LevarCli {
          |
          |Options:""".stripMargin)
 
+        val helpCmd = new Subcommand("help") {
+          footer("")
+          val cmdTopic = trailArg[String](required = false, descr = "Command user is seeking help on")
+        }
+
         val configCmd = new Subcommand("config") {
           banner(" Configure your client\n\n options:")
           footer("")
@@ -189,6 +194,35 @@ object LevarCli {
       }
 
       args.subcommands match {
+
+        case List(args.helpCmd) => {
+
+          var generalHelp = 
+"""    ~optional param~ <required param>
+config
+list datasets ~organization name~  
+list expiriements <dataset name>   # Dataset name name is optional in LevarCli.scala, but appears to be required
+view dataset <dataset name>
+view experiment <experiment name>"""
+          var generalHelp2 = 
+"""config
+list [datasets, expiriements]"""
+          var generalHelp3 = 
+"""config
+list"""
+
+
+          val cmdTopic = args.helpCmd.cmdTopic.get.getOrElse("") 
+          val commandHelp = cmdTopic match {
+            case ""       => ""
+            case "config" => "config command description"
+            case "list"   => "list command description"
+            case _        => s"Invalid command name: $cmdTopic"
+          }
+
+          if (cmdTopic == "") println(generalHelp)
+          else                println(commandHelp)
+        }
 
         case List(args.configCmd) => {
           ClientConfigIo.loadClientConfig match {
@@ -681,7 +715,7 @@ object LevarCli {
           println
         }
 
-        case _ => println("You did not supply an argument -- try 'levar-cli datasets'")
+        case _ => println("You did not supply an argument -- try 'levar-cli list datasets'")
       }
     } catch {
 
