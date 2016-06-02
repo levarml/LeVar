@@ -5,13 +5,22 @@ import org.joda.time.format.DateTimeFormat
 
 object Format {
   def datefmt(d: DateTime): String =
-    DateTimeFormat.forPattern("yyyy-MM-dd").print(d.withZone(DateTimeZone.getDefault))
+    DateTimeFormat
+      .forPattern("yyyy-MM-dd")
+      .print(d.withZone(DateTimeZone.getDefault))
 
   def datetimefmt(d: DateTime): String =
-    DateTimeFormat.forPattern("yyyy-MM-dd HH:mm").print(d.withZone(DateTimeZone.getDefault))
+    DateTimeFormat
+      .forPattern("yyyy-MM-dd HH:mm")
+      .print(d.withZone(DateTimeZone.getDefault))
 
   def datatsetRSnames(datasetRS: ResultSet[Dataset]): String = {
-    datasetRS.items.map(_.id).map { x => s"- $x" }.mkString("\n")
+    datasetRS.items
+      .map(_.id)
+      .map { x =>
+        s"- $x"
+      }
+      .mkString("\n")
   }
 
   def datasetRStoString(datasetRS: ResultSet[Dataset]): String = {
@@ -68,7 +77,6 @@ object Format {
     |- ${comment.username}
     |  $cdatefmt
     |  $commentfmt""".stripMargin
-
   }
 
   def datasetToString(dataset: Dataset): String = {
@@ -117,7 +125,9 @@ object Format {
       "No matching experiments"
     } else {
       val sb = new StringBuilder()
-      if (rs.items.map(_.datasetType).forall(_ == Some(Dataset.RegressionType))) {
+      if (rs.items
+            .map(_.datasetType)
+            .forall(_ == Some(Dataset.RegressionType))) {
         val nameLen = (Seq(14) ++ rs.items.map(_.id.size)).max
         sb ++= " Experiments"
         sb ++= " " * (nameLen - "Experiments".size)
@@ -137,11 +147,15 @@ object Format {
           sb ++= " " * (11 - numPred.size)
           sb ++= numPred
           sb ++= " | "
-          val rmse = experiment.regressionResults.map(r => f"${r.rmse}%.2f").getOrElse("N/A")
+          val rmse = experiment.regressionResults
+            .map(r => f"${r.rmse}%.2f")
+            .getOrElse("N/A")
           sb ++= " " * (8 - rmse.size)
           sb ++= rmse
         }
-      } else if (rs.items.map(_.datasetType).forall(_ == Some(Dataset.ClassificationType))) {
+      } else if (rs.items
+                   .map(_.datasetType)
+                   .forall(_ == Some(Dataset.ClassificationType))) {
         val nameLen = (Seq(14) ++ rs.items.map(_.id.size)).max
         sb ++= " Experiments"
         sb ++= " " * (nameLen - "Experiments".size)
@@ -161,7 +175,10 @@ object Format {
           sb ++= " " * (11 - numPred.size)
           sb ++= numPred
           sb ++= " | "
-          val acc = experiment.classificationResults.map(_.overallAccuracy).map(n => f"${100 * n}%5.1f").getOrElse("  N/A")
+          val acc = experiment.classificationResults
+            .map(_.overallAccuracy)
+            .map(n => f"${100 * n}%5.1f")
+            .getOrElse("  N/A")
           sb ++= acc
         }
       } else if (rs.items.map(_.datasetType).forall(_ == None)) {

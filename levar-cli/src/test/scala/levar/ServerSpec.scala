@@ -2,6 +2,4 @@ package levar
 
 import org.scalatest._
 
-class ServerSpec extends FlatSpec {
-
-}
+class ServerSpec extends FlatSpec {}

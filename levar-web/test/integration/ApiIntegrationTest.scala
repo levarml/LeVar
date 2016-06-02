@@ -8,7 +8,7 @@ import play.api.libs.ws._
 import scala.concurrent.ExecutionContext.Implicits.global
 import play.api.Play.current
 import play.api.libs.ws.WSAuthScheme.BASIC
-import play.api.libs.json.Json.{ obj => j, toJson }
+import play.api.libs.json.Json.{obj => j, toJson}
 import levar._
 import levar.json._
 import levar.Dataset._
@@ -41,7 +41,9 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
   "GET /api/test-org/datasets" must {
     "send back a 401 if no credentials provided" in {
       running(new TestServer(3333, new FakeApplication())) {
-        val response = await { WS.url("http://localhost:3333/api/test-org/datasets").get() }
+        val response = await {
+          WS.url("http://localhost:3333/api/test-org/datasets").get()
+        }
         assert(response.status == 401)
       }
     }
@@ -78,9 +80,12 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
     "send back a result if there are datasets" in {
       setupTestUser()
       db.impl.createDataset("test-org",
-        Dataset("ds1", ClassificationType, DataValidator("text" -> StringField)))
-      db.impl.createDataset("test-org",
-        Dataset("ds2", RegressionType, DataValidator("text" -> StringField)))
+                            Dataset("ds1",
+                                    ClassificationType,
+                                    DataValidator("text" -> StringField)))
+      db.impl.createDataset(
+          "test-org",
+          Dataset("ds2", RegressionType, DataValidator("text" -> StringField)))
       running(new TestServer(3333, new FakeApplication())) {
         val response = await {
           WS.url("http://localhost:3333/api/test-org/datasets")
@@ -91,9 +96,9 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
         assert(response.status == 200)
         response.json.asOpt[ResultSet[Dataset]] match {
           case Some(rs) => {
-            assert(rs.items.size == 2)
-            assert(rs.items.map(_.id).toSet == Set("ds1", "ds2"))
-          }
+              assert(rs.items.size == 2)
+              assert(rs.items.map(_.id).toSet == Set("ds1", "ds2"))
+            }
           case None => fail("did not process JSON: " + response.body)
         }
       }
@@ -103,7 +108,9 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
   "GET /api/test-org/ds1" must {
     "send back a 401 if no credentials provided" in {
       running(new TestServer(3333, new FakeApplication())) {
-        val response = await { WS.url("http://localhost:3333/api/test-org/ds1").get() }
+        val response = await {
+          WS.url("http://localhost:3333/api/test-org/ds1").get()
+        }
         assert(response.status == 401)
       }
     }
@@ -135,7 +142,9 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
     "send back a response when there is one" in {
       setupTestUser()
       db.impl.createDataset("test-org",
-        Dataset("ds1", ClassificationType, DataValidator("text" -> StringField)))
+                            Dataset("ds1",
+                                    ClassificationType,
+                                    DataValidator("text" -> StringField)))
       running(new TestServer(3333, new FakeApplication())) {
         val response = await {
           WS.url("http://localhost:3333/api/test-org/ds1")
@@ -146,15 +155,15 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
         assert(response.status == 200)
         response.json.asOpt[Dataset] match {
           case Some(ds) => {
-            assert(ds.id == "ds1")
-            assert(ds.dtype == ClassificationType)
-            assert(ds.schema == DataValidator("text" -> StringField))
-            assert(ds.createdAt != None)
-            assert(ds.updatedAt != None)
-          }
+              assert(ds.id == "ds1")
+              assert(ds.dtype == ClassificationType)
+              assert(ds.schema == DataValidator("text" -> StringField))
+              assert(ds.createdAt != None)
+              assert(ds.updatedAt != None)
+            }
           case None => {
-            fail("could not parse JSON as result set: " + response.body)
-          }
+              fail("could not parse JSON as result set: " + response.body)
+            }
         }
       }
     }
@@ -163,7 +172,9 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
   "POST /api/test-org/datset" must {
     "send back a 401 if no credentials provided" in {
       running(new TestServer(3333, new FakeApplication())) {
-        val response = await { WS.url("http://localhost:3333/api/test-org/new_dataset").post("") }
+        val response = await {
+          WS.url("http://localhost:3333/api/test-org/new_dataset").post("")
+        }
         assert(response.status == 401)
       }
     }
@@ -181,7 +192,8 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
     }
 
     "put a dataset in the DB" in {
-      val ds1 = Dataset("ds1", ClassificationType, DataValidator("text" -> StringField))
+      val ds1 = Dataset(
+          "ds1", ClassificationType, DataValidator("text" -> StringField))
       setupTestUser()
       running(new TestServer(3333, new FakeApplication())) {
         val response = await {
@@ -193,15 +205,15 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
         assert(response.status == 200)
         response.json.asOpt[Dataset] match {
           case Some(ds) => {
-            assert(ds.id == "ds1")
-            assert(ds.dtype == ClassificationType)
-            assert(ds.schema == DataValidator("text" -> StringField))
-            assert(ds.createdAt != None)
-            assert(ds.updatedAt != None)
-          }
+              assert(ds.id == "ds1")
+              assert(ds.dtype == ClassificationType)
+              assert(ds.schema == DataValidator("text" -> StringField))
+              assert(ds.createdAt != None)
+              assert(ds.updatedAt != None)
+            }
           case None => {
-            fail("could not parse JSON as result set: " + response.body)
-          }
+              fail("could not parse JSON as result set: " + response.body)
+            }
         }
         val ds1t = db.impl.getDataset("test-org", "ds1")
         assert(ds1t.id == ds1.id)
@@ -213,10 +225,9 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
     }
 
     "send a bad response if the dataset schema is incoherent" in {
-      val ds1 = j(
-        "id" -> "ds1",
-        "type" -> "classification",
-        "schema" -> j("foo" -> "bar", "redsox" -> "awesome"))
+      val ds1 = j("id" -> "ds1",
+                  "type" -> "classification",
+                  "schema" -> j("foo" -> "bar", "redsox" -> "awesome"))
       setupTestUser()
       running(new TestServer(3333, new FakeApplication())) {
         val response = await {
@@ -234,28 +245,29 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
     "update the ID of a dataset" in {
       setupTestUser()
       db.impl.createDataset("test-org",
-        Dataset("ds1", ClassificationType, DataValidator("text" -> StringField)))
+                            Dataset("ds1",
+                                    ClassificationType,
+                                    DataValidator("text" -> StringField)))
       val u1 = Dataset.Update(id = Some("ds2"))
       Thread.sleep(100)
       running(new TestServer(3333, new FakeApplication())) {
         val response = await {
           WS.url("http://localhost:3333/api/test-org/ds1/update")
-            .withHeaders(
-              "Accept" -> "application/json",
-              "Content-type" -> "application/json")
+            .withHeaders("Accept" -> "application/json",
+                         "Content-type" -> "application/json")
             .withAuth("test-user", "test-pass", BASIC)
             .post(toJson(u1))
         }
         assert(response.status == 200)
         response.json.asOpt[Dataset] match {
           case Some(ds) => {
-            assert(ds.id == "ds2")
-            assert(ds.dtype == ClassificationType)
-            assert(ds.schema == DataValidator("text" -> StringField))
-            assert(ds.createdAt != None)
-            assert(ds.updatedAt != None)
-            assert(ds.createdAt != ds.updatedAt)
-          }
+              assert(ds.id == "ds2")
+              assert(ds.dtype == ClassificationType)
+              assert(ds.schema == DataValidator("text" -> StringField))
+              assert(ds.createdAt != None)
+              assert(ds.updatedAt != None)
+              assert(ds.createdAt != ds.updatedAt)
+            }
           case None => fail("could not parse response: " + response.body)
         }
       }
@@ -271,16 +283,18 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
     "send back a 400 and do no updates if the ID is taken" in {
       setupTestUser()
       db.impl.createDataset("test-org",
-        Dataset("ds1", ClassificationType, DataValidator("text" -> StringField)))
-      db.impl.createDataset("test-org",
-        Dataset("ds2", RegressionType, DataValidator("text" -> StringField)))
+                            Dataset("ds1",
+                                    ClassificationType,
+                                    DataValidator("text" -> StringField)))
+      db.impl.createDataset(
+          "test-org",
+          Dataset("ds2", RegressionType, DataValidator("text" -> StringField)))
       val u1 = Dataset.Update(id = Some("ds2"))
       running(new TestServer(3333, new FakeApplication())) {
         val response = await {
           WS.url("http://localhost:3333/api/test-org/ds1/update")
-            .withHeaders(
-              "Accept" -> "application/json",
-              "Content-type" -> "application/json")
+            .withHeaders("Accept" -> "application/json",
+                         "Content-type" -> "application/json")
             .withAuth("test-user", "test-pass", BASIC)
             .post(toJson(u1))
         }
@@ -291,15 +305,16 @@ class ApiIntegrationTest extends PlaySpec with BeforeAndAfterEach {
     "send back a 404 if the dataset doesn't exist" in {
       setupTestUser()
       db.impl.createDataset("test-org",
-        Dataset("ds1", ClassificationType, DataValidator("text" -> StringField)))
+                            Dataset("ds1",
+                                    ClassificationType,
+                                    DataValidator("text" -> StringField)))
       val u1 = Dataset.Update(id = Some("ds2"))
       Thread.sleep(100)
       running(new TestServer(3333, new FakeApplication())) {
         val response = await {
           WS.url("http://localhost:3333/api/test-org/dataset/ds3")
-            .withHeaders(
-              "Accept" -> "application/json",
-              "Content-type" -> "application/json")
+            .withHeaders("Accept" -> "application/json",
+                         "Content-type" -> "application/json")
             .withAuth("test-user", "test-pass", BASIC)
             .post(toJson(u1))
         }

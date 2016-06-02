@@ -3,18 +3,18 @@ package levar
 import org.joda.time.DateTime
 
 /**
- * Experiment data type
- *
- * @param id the user provided identifier, unique within the organization
- * @param datasetId the ID of the datasets associated with the experiment
- * @param name optional user provided name of the experiment
- * @param createdAt the date the experiment was stored in the DB
- * @param updatedAd the date the experiment was updated last
- * @param size the number of [[Prediction]]s in the experiment
- * @param itemsSample a sample of the [[Prediction]]s for display
- * @param labels the labels in the experiment
- * @param comments the comments made of this experiment
- */
+  * Experiment data type
+  *
+  * @param id the user provided identifier, unique within the organization
+  * @param datasetId the ID of the datasets associated with the experiment
+  * @param name optional user provided name of the experiment
+  * @param createdAt the date the experiment was stored in the DB
+  * @param updatedAd the date the experiment was updated last
+  * @param size the number of [[Prediction]]s in the experiment
+  * @param itemsSample a sample of the [[Prediction]]s for display
+  * @param labels the labels in the experiment
+  * @param comments the comments made of this experiment
+  */
 case class Experiment(
     id: String,
     datasetId: Option[String] = None,
@@ -37,13 +37,17 @@ case class Experiment(
 
 object Experiment {
 
-  case class Update(id: Option[String] = None, data: Option[Seq[Prediction]] = None)
+  case class Update(
+      id: Option[String] = None, data: Option[Seq[Prediction]] = None)
 
-  case class ClassificationResults(classes: Seq[String], classCounts: Seq[(String, String, Int)]) {
+  case class ClassificationResults(
+      classes: Seq[String], classCounts: Seq[(String, String, Int)]) {
 
-    lazy val totalCorrect: Int = classCounts.filter(x => x._1 == x._2).map(_._3).sum
+    lazy val totalCorrect: Int =
+      classCounts.filter(x => x._1 == x._2).map(_._3).sum
 
-    private lazy val m: Map[(String, String), Int] = classCounts.map(x => (x._1, x._2) -> x._3).toMap
+    private lazy val m: Map[(String, String), Int] =
+      classCounts.map(x => (x._1, x._2) -> x._3).toMap
 
     lazy val total: Int = classes.map(goldSum(_)).sum
 
@@ -66,10 +70,9 @@ object Experiment {
     }
   }
 
-  case class RegressionResults(
-    rmse: Double,
-    meanAbsErr: Double,
-    medianAbsErr: Double,
-    p10AbsErr: Double,
-    p90AbsErr: Double)
+  case class RegressionResults(rmse: Double,
+                               meanAbsErr: Double,
+                               medianAbsErr: Double,
+                               p10AbsErr: Double,
+                               p90AbsErr: Double)
 }

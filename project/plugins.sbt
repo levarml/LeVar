@@ -6,7 +6,7 @@ resolvers += Classpaths.sbtPluginReleases
 
 addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.3.6")
 
-addSbtPlugin("com.typesafe.sbt" % "sbt-scalariform" % "1.3.0")
+addSbtPlugin("com.geirsson" % "sbt-scalafmt" % "0.2.5")
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "0.7.6")
 

@@ -2,7 +2,7 @@ package levar
 
 package object util {
 
-  import java.net.{ URL, MalformedURLException }
+  import java.net.{URL, MalformedURLException}
 
   /** Regex match for valid organization names */
   def validOrgName(name: String): Boolean = name.matches("""[-\w\.]+""")

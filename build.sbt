@@ -28,7 +28,7 @@ lazy val commonSettings = Seq(
   crossScalaVersions := Seq("2.10.6", "2.11.7"),
   releaseCrossBuild := true,
   fork := true
-) ++ scalariformSettings
+) ++ reformatOnCompileSettings
 
 lazy val core = project
   .in(file("levar-core"))

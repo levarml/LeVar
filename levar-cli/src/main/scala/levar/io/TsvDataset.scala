@@ -1,7 +1,7 @@
 package levar.io
 
-import levar.data.{ TabularDataset, LevarDataError }
-import levar.Dataset.{ RegressionType, ClassificationType, NumberField, StringField }
+import levar.data.{TabularDataset, LevarDataError}
+import levar.Dataset.{RegressionType, ClassificationType, NumberField, StringField}
 import scala.io.Source
 
 object TsvDataset {
@@ -14,7 +14,8 @@ object TsvDataset {
     fromArrays(name, lines.map(_.split("\\t")))
   }
 
-  def fromArrays(name: String, arrays: Iterator[Array[String]]): TabularDataset = {
+  def fromArrays(
+      name: String, arrays: Iterator[Array[String]]): TabularDataset = {
     val header: Array[String] = {
       val headerSet = arrays.take(1).toList
       if (headerSet.isEmpty) {
@@ -37,16 +38,18 @@ object TsvDataset {
       } else if (scoreIdx < 0 && classIdx >= 0) {
         (ClassificationType, classIdx)
       } else if (scoreIdx >= 0 && classIdx >= 0) {
-        throw new LevarDataError("Cannot have both 'class' and 'score' fields, indeterminate dataset type")
+        throw new LevarDataError(
+            "Cannot have both 'class' and 'score' fields, indeterminate dataset type")
       } else {
-        throw new LevarDataError("Must have either 'class' or 'score' field, indeterminate dataset type")
+        throw new LevarDataError(
+            "Must have either 'class' or 'score' field, indeterminate dataset type")
       }
     }
 
     val buf = arrays.take(1000).toVector
     val dataFields = for ((f, i) <- header.zipWithIndex if i != valCol) yield {
       try {
-        buf.map(_.padTo(minRowSize, "")).map(_(i).toDouble)
+        buf.map(_.padTo(minRowSize, "")).map(_ (i).toDouble)
         (i, f, NumberField)
       } catch {
         case _: NumberFormatException => (i, f, StringField)

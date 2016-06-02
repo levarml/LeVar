@@ -16,11 +16,15 @@ object DatumController extends Controller with JsonLogging {
 
   def details(org: String, datasetId: String, dataid: String) = TODO
 
-  def search(org: String, datasetId: String, after: Option[String] = None, gold: Option[Int] = None) = Authenticated { implicit user =>
+  def search(org: String,
+             datasetId: String,
+             after: Option[String] = None,
+             gold: Option[Int] = None) = Authenticated { implicit user =>
     HasOrgAccess(user, org) {
       Action { implicit request =>
         try {
-          val results = dbase.listData(org, datasetId, after, withVal = gold == Some(1))
+          val results =
+            dbase.listData(org, datasetId, after, withVal = gold == Some(1))
           ResultSet(Seq.empty[Datum])
           render {
             case AcceptsText() => Ok(Format.datumRStoString(results) + "\n")
@@ -29,12 +33,12 @@ object DatumController extends Controller with JsonLogging {
           }
         } catch {
           case _: NotFoundInDb => {
-            val msg = s"Dataset not found: $org/$datasetId"
-            render {
-              case AcceptsText() => NotFound(msg)
-              case Accepts.Json() => NotFound(Json.obj("message" -> msg))
+              val msg = s"Dataset not found: $org/$datasetId"
+              render {
+                case AcceptsText() => NotFound(msg)
+                case Accepts.Json() => NotFound(Json.obj("message" -> msg))
+              }
             }
-          }
         }
       }
     }

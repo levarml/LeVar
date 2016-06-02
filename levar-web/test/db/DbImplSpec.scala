@@ -26,7 +26,8 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
   }
 
   "impl.getAuth" should "not allow any old user to authenticate" in {
-    assert(!impl.getAuth("user-name", "my-password"), "unauthorized access with 0 users")
+    assert(!impl.getAuth("user-name", "my-password"),
+           "unauthorized access with 0 users")
   }
 
   "impl.addAuth" should "create a new user" in {
@@ -42,7 +43,8 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
     impl.addAuth("user-name", "my-password")
 
     info("checking user-name with incorrct password")
-    assert(!impl.getAuth("user-name", "my-password2"), "allowed invalid access")
+    assert(
+        !impl.getAuth("user-name", "my-password2"), "allowed invalid access")
   }
 
   it should "not create duplicate users" in {
@@ -58,9 +60,9 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
       impl.addAuth("user-name", "my-password-2")
     } catch {
       case _: CannotCreateUserException => {
-        info("caught error trying to create duplicate user")
-        caught = true
-      }
+          info("caught error trying to create duplicate user")
+          caught = true
+        }
     }
     if (!caught) {
       fail("did not block creation of duplicate key")
@@ -74,9 +76,9 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
       impl.delAuth("user-name")
     } catch {
       case e: UserNotFoundException => {
-        info("caught UserNotFoundException")
-        caught = true
-      }
+          info("caught UserNotFoundException")
+          caught = true
+        }
     }
     if (!caught)
       fail("delAuth did not throw exception")
@@ -86,7 +88,8 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
     impl.addAuth("user-name", "my-password")
 
     info("looking up user-name")
-    assert(impl.getAuth("user-name", "my-password"), "did not create user-name")
+    assert(
+        impl.getAuth("user-name", "my-password"), "did not create user-name")
 
     info("deleting user-name")
     impl.delAuth("user-name")
@@ -103,15 +106,18 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
     impl.addAuth("user-name-2", "my-password")
 
     info("checking user-name-1 was created")
-    assert(impl.getAuth("user-name-1", "my-password"), "did not create user-name-1")
+    assert(impl.getAuth("user-name-1", "my-password"),
+           "did not create user-name-1")
 
     info("checking user-name-2 was created")
-    assert(impl.getAuth("user-name-2", "my-password"), "did not create user-name-2")
+    assert(impl.getAuth("user-name-2", "my-password"),
+           "did not create user-name-2")
 
     info("removing user-name-1")
     impl.delAuth("user-name-1")
 
-    assert(!impl.getAuth("user-name-1", "my-password"), "did not delete user-name-1")
+    assert(!impl.getAuth("user-name-1", "my-password"),
+           "did not delete user-name-1")
 
     assert(impl.getAuth("user-name-2", "my-password"), "deleted user-name-2")
   }
@@ -124,25 +130,31 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
 
     info("renaming user-name to john-lennon")
     impl.renameAuth("user-name", "john-lennon")
-    assert(impl.getAuth("john-lennon", "my-password"), "did not rename user-name-1 to john-lennon")
+    assert(impl.getAuth("john-lennon", "my-password"),
+           "did not rename user-name-1 to john-lennon")
   }
 
   it should "not rename *every* user" in {
     info("adding user-name-1")
     impl.addAuth("user-name-1", "my-password")
-    assert(impl.getAuth("user-name-1", "my-password"), "did not create user-name-1")
+    assert(impl.getAuth("user-name-1", "my-password"),
+           "did not create user-name-1")
     info("adding user-name-2")
     impl.addAuth("user-name-2", "my-password-2")
-    assert(impl.getAuth("user-name-2", "my-password-2"), "user-name-2 not created")
+    assert(impl.getAuth("user-name-2", "my-password-2"),
+           "user-name-2 not created")
 
     info("renaming user-name-1 to john-lennon")
     impl.renameAuth("user-name-1", "john-lennon")
 
-    assert(impl.getAuth("john-lennon", "my-password"), "did not rename user-name-1 to john-lennong")
+    assert(impl.getAuth("john-lennon", "my-password"),
+           "did not rename user-name-1 to john-lennong")
 
-    assert(impl.getAuth("user-name-2", "my-password-2"), "user-name-2 got renamed somehow")
+    assert(impl.getAuth("user-name-2", "my-password-2"),
+           "user-name-2 got renamed somehow")
 
-    assert(!impl.getAuth("user-name-2", "my-password"), "user-name-2 can be accessed incorrectly")
+    assert(!impl.getAuth("user-name-2", "my-password"),
+           "user-name-2 can be accessed incorrectly")
   }
 
   "impl.addOrg" should "create a new organization" in {
@@ -160,11 +172,13 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
 
     info("adding user-name-1")
     impl.addAuth("user-name-1", "my-password")
-    assert(impl.getAuth("user-name-1", "my-password"), "did not create user-name-1")
+    assert(impl.getAuth("user-name-1", "my-password"),
+           "did not create user-name-1")
 
     info("adding user-name-2")
     impl.addAuth("user-name-2", "my-password-2")
-    assert(impl.getAuth("user-name-2", "my-password-2"), "user-name-2 not created")
+    assert(impl.getAuth("user-name-2", "my-password-2"),
+           "user-name-2 not created")
 
     info("verifying org1 is still empty")
     assert(impl.listOrgUsers("org1").toSet == Set.empty)
@@ -178,9 +192,9 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
       impl.addOrg("org 1")
     } catch {
       case _: InvalidIdentifierException => {
-        info("caught invalid identifier")
-        caught = true
-      }
+          info("caught invalid identifier")
+          caught = true
+        }
     }
 
     if (!caught) {
@@ -191,15 +205,18 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
   it should "add users when given users" in {
     info("adding user-name-1")
     impl.addAuth("user-name-1", "my-password")
-    assert(impl.getAuth("user-name-1", "my-password"), "did not create user-name-1")
+    assert(impl.getAuth("user-name-1", "my-password"),
+           "did not create user-name-1")
 
     info("adding user-name-2")
     impl.addAuth("user-name-2", "my-password-2")
-    assert(impl.getAuth("user-name-2", "my-password-2"), "user-name-2 not created")
+    assert(impl.getAuth("user-name-2", "my-password-2"),
+           "user-name-2 not created")
 
     info("adding user-name-3")
     impl.addAuth("user-name-3", "my-password-2")
-    assert(impl.getAuth("user-name-3", "my-password-2"), "user-name-3 not created")
+    assert(impl.getAuth("user-name-3", "my-password-2"),
+           "user-name-3 not created")
 
     info("adding org1 with user-name-1 and user-name-2")
     impl.addOrg("org1", Seq("user-name-1", "user-name-2"))
@@ -212,7 +229,8 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
     assert(impl.listOrgs.toSet == Set("org1", "org2"))
 
     info("checking user-name-1 and user-name-2 are in org1")
-    assert(impl.listOrgUsers("org1").toSet == Set("user-name-1", "user-name-2"))
+    assert(
+        impl.listOrgUsers("org1").toSet == Set("user-name-1", "user-name-2"))
 
     info("checking the orgs for user-name-1")
     assert(impl.listUserOrgs("user-name-1") == Seq("org1"))
@@ -244,11 +262,13 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
   it should "not add the same org twice, when adding with users" in {
     info("adding user-name-1")
     impl.addAuth("user-name-1", "my-password")
-    assert(impl.getAuth("user-name-1", "my-password"), "did not create user-name-1")
+    assert(impl.getAuth("user-name-1", "my-password"),
+           "did not create user-name-1")
 
     info("adding user-name-2")
     impl.addAuth("user-name-2", "my-password-2")
-    assert(impl.getAuth("user-name-2", "my-password-2"), "user-name-2 not created")
+    assert(impl.getAuth("user-name-2", "my-password-2"),
+           "user-name-2 not created")
 
     info("adding org1")
     impl.addOrg("org1")
@@ -275,9 +295,9 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
       impl.addOrg("org1", Seq("user-name-1"))
     } catch {
       case _: UserNotFoundException => {
-        info("blocked non-existent user")
-        caught = true
-      }
+          info("blocked non-existent user")
+          caught = true
+        }
     }
     if (!caught) {
       fail("allowed org creation with non-existent users")
@@ -294,22 +314,26 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
 
     info("adding user-name-1")
     impl.addAuth("user-name-1", "my-password")
-    assert(impl.getAuth("user-name-1", "my-password"), "did not create user-name-1")
+    assert(impl.getAuth("user-name-1", "my-password"),
+           "did not create user-name-1")
 
     info("adding user-name-2")
     impl.addAuth("user-name-2", "my-password-2")
-    assert(impl.getAuth("user-name-2", "my-password-2"), "user-name-2 not created")
+    assert(impl.getAuth("user-name-2", "my-password-2"),
+           "user-name-2 not created")
 
     info("adding user-name-3")
     impl.addAuth("user-name-3", "my-password-2")
-    assert(impl.getAuth("user-name-3", "my-password-2"), "user-name-3 not created")
+    assert(impl.getAuth("user-name-3", "my-password-2"),
+           "user-name-3 not created")
 
     info("verifying org1 is still empty")
     assert(impl.listOrgUsers("org1").toSet == Set.empty)
 
     info("adding users to org1")
     impl.addToOrg("org1", Seq("user-name-1", "user-name-2"))
-    assert(impl.listOrgUsers("org1").toSet == Set("user-name-1", "user-name-2"))
+    assert(
+        impl.listOrgUsers("org1").toSet == Set("user-name-1", "user-name-2"))
 
     assert(impl.userHasOrgAccess("user-name-1", "org1"))
     assert(impl.userHasOrgAccess("user-name-2", "org1"))
@@ -328,9 +352,9 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
       impl.addToOrg("org1", Seq("user-name-1", "user-name-2"))
     } catch {
       case e: UserNotFoundException => {
-        info("blocked adding non-existent users")
-        caught = true
-      }
+          info("blocked adding non-existent users")
+          caught = true
+        }
     }
 
     if (!caught) {
@@ -359,9 +383,9 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
       impl.renameOrg("org1", "topo-chico")
     } catch {
       case _: OrganizationNotFoundException => {
-        info("caught non-existent org name")
-        caught = true
-      }
+          info("caught non-existent org name")
+          caught = true
+        }
     }
     if (!caught) {
       fail("did not catch non-existent org name")
@@ -380,9 +404,9 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
       impl.renameOrg("org1", "Logan's Run")
     } catch {
       case _: InvalidIdentifierException => {
-        info("caught invalid name")
-        caught = true
-      }
+          info("caught invalid name")
+          caught = true
+        }
     }
 
     if (!caught) {
@@ -412,21 +436,21 @@ class DbImplSpec extends FlatSpec with BeforeAndAfterEach {
     info("checking new created date")
     fetched.createdAt match {
       case Some(createdAt) => {
-        val now = new DateTime()
-        assert(now.getMillis - createdAt.getMillis < 1000)
-      }
+          val now = new DateTime()
+          assert(now.getMillis - createdAt.getMillis < 1000)
+        }
       case None => {
-        fail("No created_at in returned dataset")
-      }
+          fail("No created_at in returned dataset")
+        }
     }
     info("checking updated date")
     fetched.updatedAt match {
       case Some(updatedAt) => {
-        assert(updatedAt == fetched.createdAt.get)
-      }
+          assert(updatedAt == fetched.createdAt.get)
+        }
       case None => {
-        fail("No updated_at in returned dataset")
-      }
+          fail("No updated_at in returned dataset")
+        }
     }
   }
 

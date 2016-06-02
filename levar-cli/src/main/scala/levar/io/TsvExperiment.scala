@@ -1,20 +1,25 @@
 package levar.io
 
 import scala.io._
-import levar.data.{ TabularExperiment, LevarDataError }
-import levar.Dataset.{ DatasetType, ClassificationType, RegressionType }
+import levar.data.{TabularExperiment, LevarDataError}
+import levar.Dataset.{DatasetType, ClassificationType, RegressionType}
 
 object TsvExperiment {
 
-  def fromSource(dtype: DatasetType, name: String, src: Source): TabularExperiment = {
+  def fromSource(
+      dtype: DatasetType, name: String, src: Source): TabularExperiment = {
     fromLines(dtype, name, src.getLines)
   }
 
-  def fromLines(dtype: DatasetType, name: String, lines: Iterator[String]): TabularExperiment = {
+  def fromLines(dtype: DatasetType,
+                name: String,
+                lines: Iterator[String]): TabularExperiment = {
     fromArrays(dtype, name, lines.map(_.split("\\t")))
   }
 
-  def fromArrays(dtype: DatasetType, name: String, arrays: Iterator[Array[String]]): TabularExperiment = {
+  def fromArrays(dtype: DatasetType,
+                 name: String,
+                 arrays: Iterator[Array[String]]): TabularExperiment = {
     val header: Array[String] = {
       val headerSet = arrays.take(1).toList
       if (headerSet.isEmpty) {
@@ -30,19 +35,19 @@ object TsvExperiment {
 
     val predCol = dtype match {
       case RegressionType => {
-        val c = header.indexWhere(_.equalsIgnoreCase("score"))
-        if (c < 0) {
-          throw new LevarDataError("Must provide a 'score' column")
+          val c = header.indexWhere(_.equalsIgnoreCase("score"))
+          if (c < 0) {
+            throw new LevarDataError("Must provide a 'score' column")
+          }
+          c
         }
-        c
-      }
       case ClassificationType => {
-        val c = header.indexWhere(_.equalsIgnoreCase("class"))
-        if (c < 0) {
-          throw new LevarDataError("Must provide a 'class' column")
+          val c = header.indexWhere(_.equalsIgnoreCase("class"))
+          if (c < 0) {
+            throw new LevarDataError("Must provide a 'class' column")
+          }
+          c
         }
-        c
-      }
     }
 
     new TabularExperiment(dtype, name, idCol, predCol, arrays)

@@ -12,10 +12,10 @@ object ClientConfigIo {
   lazy val config = ConfigFactory.load
 
   implicit val ClientConfigFormats: Format[ClientConfig] = (
-    (__ \ "username").format[String]
-    and (__ \ "password").format[String]
-    and (__ \ "url").format[String]
-    and (__ \ "org").format[String]
+      (__ \ "username").format[String] and
+      (__ \ "password").format[String] and
+      (__ \ "url").format[String] and
+      (__ \ "org").format[String]
   )(ClientConfig.apply, unlift(ClientConfig.unapply))
 
   def loadClient: LevarClient = loadClientConfig match {
