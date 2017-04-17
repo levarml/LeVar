@@ -8,4 +8,4 @@ libraryDependencies ++= Seq(
   "com.typesafe" % "config" % "1.3.0",
   "org.scalanlp" %% "breeze" % "0.11.2")
 
-packageArchetype.java_application
+enablePlugins(JavaAppPackaging)

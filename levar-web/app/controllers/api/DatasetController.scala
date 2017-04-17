@@ -34,7 +34,7 @@ object DatasetController extends Controller with JsonLogging {
         infoU("status" -> "request", "action" -> "create")
         try {
           request.body.validate[Dataset].fold(
-            errors => BadRequest(JsError.toFlatJson(errors)),
+            errors => BadRequest(JsError.toJson(errors)),
             { ds =>
               try {
                 db.impl.createDataset(org, ds)
@@ -103,7 +103,7 @@ object DatasetController extends Controller with JsonLogging {
       Action(parse.json) { implicit request =>
         infoU("status" -> "request", "action" -> "update", "dataset" -> id)
         request.body.validate[Dataset.Update].fold(
-          errors => BadRequest(JsError.toFlatJson(errors)),
+          errors => BadRequest(JsError.toJson(errors)),
           { dsUpdate =>
             try {
               db.impl.updateDataset(org, id, dsUpdate)

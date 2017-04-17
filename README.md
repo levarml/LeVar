@@ -57,7 +57,7 @@ the web application expects a local Postgres DB named "levar". To create that:
 
     $ psql -c 'create database levar;'
 
-We're using Play 2.3. Because we're using a multi-project build, you need
+We're using Play 2.4. Because we're using a multi-project build, you need
 to load the `web` project explicitly in the SBT console.
 
 To run locally:
