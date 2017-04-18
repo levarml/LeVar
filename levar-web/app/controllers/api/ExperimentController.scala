@@ -55,7 +55,7 @@ object ExperimentController extends Controller with JsonLogging {
     HasOrgAccess(user, org) {
       Action(parse.json) { implicit request =>
         request.body.validate[Experiment].fold(
-          errors => BadRequest(JsError.toFlatJson(errors)),
+          errors => BadRequest(JsError.toJson(errors)),
           { exp =>
             try {
               dbase.createExperiment(org, datasetId, exp)
@@ -110,7 +110,7 @@ object ExperimentController extends Controller with JsonLogging {
       Action(parse.json) { implicit request =>
         infoU("status" -> "request", "action" -> "update", "dataset" -> datasetId, "experiment" -> id)
         request.body.validate[Experiment.Update].fold(
-          errors => BadRequest(JsError.toFlatJson(errors)),
+          errors => BadRequest(JsError.toJson(errors)),
           { expUpdate =>
             try {
               dbase.updateExperiment(org, datasetId, id, expUpdate)
