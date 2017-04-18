@@ -1,7 +1,4 @@
-import com.typesafe.sbt.SbtNativePackager._
-import NativePackagerKeys._
-
-name := "levar-cli"
+name := "levar"
 
 libraryDependencies ++= Seq(
   "org.rogach" %% "scallop" % "0.9.5",
