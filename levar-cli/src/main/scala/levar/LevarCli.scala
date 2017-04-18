@@ -639,6 +639,30 @@ object LevarCli {
           println(s"Dataset $org/$datasetId renamed to $org/$newDatasetId")
         }
 
+        case List(args.renameCmd, args.renameCmd.experimentCmd) => {
+          val client = ClientConfigIo.loadClient
+          val expName = args.deleteCmd.experimentCmd.experiment()
+          val (org, datasetId, experimentId) = expName match {
+            case abcPatt(orgId, datasetId, experimentId) => (orgId, datasetId, experimentId)
+            case abPatt(datasetId, experimentId) => (client.config.org, datasetId, experimentId)
+            case _ => {
+              Console.err.println(s"Invalid experiment name: $expName")
+              Console.err.println("Please specify as DATASET/EXPERIMENT or ORG/DATASET/EXPERIMENT")
+              sys.exit(1)
+            }
+          }
+          val newName = args.renameCmd.experimentCmd.to()
+          val newExperimentId = newName match {
+            case aPatt(newExpId) => newExpId
+            case _ => {
+              Console.err.println(s"Invalid experiment name: $newName")
+              sys.exit(1)
+            }
+          }
+          Await.result(client.renameExperiment(org, datasetId, experimentId, newExperimentId), waitTime seconds)
+          println(s"Experiment $org/$datasetId/$experimentId renamed to $org/$datasetId/$newExperimentId")
+        }
+
         case List(args.deleteCmd, args.deleteCmd.experimentCmd) => {
           val client = ClientConfigIo.loadClient
           val expName = args.deleteCmd.experimentCmd.experiment()
