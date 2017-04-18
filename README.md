@@ -126,7 +126,7 @@ To build the CLI, simply do this:
 To install in, say, the `bin` directory of your $HOME, do this:
 
     $ mkdir -p ~/bin ~/lib
-    $ cp levar-cli/target/universal/stage/* ~/
+    $ cp -r levar-cli/target/universal/stage/* ~/
 
 ## Set up the server
 
