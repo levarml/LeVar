@@ -202,6 +202,11 @@ class LevarClient(val config: ClientConfig) {
     get[Experiment](s"/api/$org/$datasetId/$experimentId")
   }
 
+  def renameExperiment(org: String, datasetId: String, experientId: String, newId: String): Future[Unit] = {
+    val upd = Experiment.Update(id = Some(newId))
+    post[Experiment.Update](s"/api/$org/$datasetId/$experientId/update", upd)
+  }
+
   def deleteExperiment(org: String, datasetId: String, experimentId: String): Future[Unit] = {
     delete(s"/api/$org/$datasetId/$experimentId")
   }
