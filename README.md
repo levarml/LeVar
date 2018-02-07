@@ -1,3 +1,5 @@
+![LeVar logo](img/levar.png)
+
 # LeVar
 
 Machine learning training and evaluation database.
@@ -242,6 +244,9 @@ LeVar is open source and licensed under the [Apache License 2.0](LICENSE.txt).
 
 ## Acknowledgements
 
-Developed with love at [People Pattern Corporation](https://peoplepattern.com)
+Built with contributions from folks at [Indeed](https://indeed.com) and
+[People Pattern Corporation](https://peoplepattern.com)
+
+[![Indeed logo](img/indeed.png)](https://indeed.com)
 
 [![People Pattern logo](img/pp.png)](https://peoplepattern.com)
