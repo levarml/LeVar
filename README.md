@@ -1,10 +1,12 @@
 # LeVar
 
+<img alt="LeVar logo" width=300 src=img/levar.png>
+
 Machine learning training and evaluation database.
 
 [![Build Status](https://travis-ci.org/levarml/LeVar.svg?branch=master)](https://travis-ci.org/levarml/LeVar)
-[![Coverage Status](https://coveralls.io/repos/peoplepattern/LeVar/badge.svg?branch=master&service=github)](https://coveralls.io/github/peoplepattern/LeVar?branch=master)
-[![Join the chat at https://gitter.im/peoplepattern/LeVar](https://badges.gitter.im/peoplepattern/LeVar.svg)](https://gitter.im/peoplepattern/LeVar?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Coverage Status](https://coveralls.io/repos/github/levarml/LeVar/badge.svg?branch=master)](https://coveralls.io/github/levarml/LeVar?branch=master)
+[![Gitter](https://badges.gitter.im/levarml/LeVar.svg)](https://gitter.im/levarml/LeVar?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 ## About
 
@@ -242,6 +244,9 @@ LeVar is open source and licensed under the [Apache License 2.0](LICENSE.txt).
 
 ## Acknowledgements
 
-Developed with love at [People Pattern Corporation](https://peoplepattern.com)
+Built with contributions from folks at [Indeed](https://indeed.com) and
+[People Pattern Corporation](https://peoplepattern.com)
+
+[![Indeed logo](img/indeed.png)](https://indeed.com)
 
 [![People Pattern logo](img/pp.png)](https://peoplepattern.com)
