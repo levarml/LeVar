@@ -1,9 +1,12 @@
 # LeVar
 
+[![Join the chat at https://gitter.im/levarml/LeVar](https://badges.gitter.im/levarml/LeVar.svg)](https://gitter.im/levarml/LeVar?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Machine learning training and evaluation database.
 
-[![Build Status](https://travis-ci.org/peoplepattern/LeVar.svg?branch=master)](https://travis-ci.org/peoplepattern/LeVar)
+[![Build Status](https://travis-ci.org/levarml/LeVar.svg?branch=master)](https://travis-ci.org/levarml/LeVar)
 [![Coverage Status](https://coveralls.io/repos/peoplepattern/LeVar/badge.svg?branch=master&service=github)](https://coveralls.io/github/peoplepattern/LeVar?branch=master)
+[![Join the chat at https://gitter.im/peoplepattern/LeVar](https://badges.gitter.im/peoplepattern/LeVar.svg)](https://gitter.im/peoplepattern/LeVar?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 ## About
 
@@ -56,7 +59,7 @@ the web application expects a local Postgres DB named "levar". To create that:
 
     $ psql -c 'create database levar;'
 
-We're using Play 2.3. Because we're using a multi-project build, you need
+We're using Play 2.4. Because we're using a multi-project build, you need
 to load the `web` project explicitly in the SBT console.
 
 To run locally:
