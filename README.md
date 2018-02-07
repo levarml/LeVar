@@ -6,7 +6,7 @@ Machine learning training and evaluation database.
 
 [![Build Status](https://travis-ci.org/levarml/LeVar.svg?branch=master)](https://travis-ci.org/levarml/LeVar)
 [![Coverage Status](https://coveralls.io/repos/github/levarml/LeVar/badge.svg?branch=master)](https://coveralls.io/github/levarml/LeVar?branch=master)
-[![Join the chat at https://gitter.im/peoplepattern/LeVar](https://badges.gitter.im/peoplepattern/LeVar.svg)](https://gitter.im/peoplepattern/LeVar?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Gitter](https://badges.gitter.im/levarml/LeVar.svg)](https://gitter.im/levarml/LeVar?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 ## About
 
