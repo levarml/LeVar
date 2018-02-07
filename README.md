@@ -1,6 +1,6 @@
-![LeVar logo](img/levar.png)
-
 # LeVar
+
+<img alt="LeVar logo" width=300 src=img/levar.png>
 
 Machine learning training and evaluation database.
 
